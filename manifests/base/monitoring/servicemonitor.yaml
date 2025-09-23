@@ -8,4 +8,4 @@ spec:
   - port: trivy-operator-metrics-exporter
   selector:
     matchLabels:
-      app: trivy-operator-metrics-exporter
+      app.kubernetes.io/name: trivy-operator-metrics-exporter
