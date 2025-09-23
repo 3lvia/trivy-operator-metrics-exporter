@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/3lvia/core/applications/trivy-operator-metrics-exporter/pkg/appconfig"
+	"github.com/3lvia/trivy-operator-metrics-exporter/pkg/appconfig"
 	log "github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel/attribute"
 	meter "go.opentelemetry.io/otel/metric"

@@ -17,16 +17,3 @@ func GetEnvFallback(key string, fallback string) string {
 	}
 	return fallback
 }
-
-/*
-func getFunctionName() string {
-	pc := make([]uintptr, 10)
-	runtime.Callers(2, pc)
-
-	frames := runtime.CallersFrames(pc)
-	frame, _ := frames.Next()
-
-	slice := strings.SplitAfter(frame.Function, ".")
-	return slice[len(slice)-1]
-}
-*/

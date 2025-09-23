@@ -3,10 +3,10 @@ package main
 import (
 	"context"
 
-	"github.com/3lvia/core/applications/trivy-operator-metrics-exporter/pkg/api"
-	"github.com/3lvia/core/applications/trivy-operator-metrics-exporter/pkg/appconfig"
-	"github.com/3lvia/core/applications/trivy-operator-metrics-exporter/pkg/jobs"
-	"github.com/3lvia/core/applications/trivy-operator-metrics-exporter/pkg/reports"
+	"github.com/3lvia/trivy-operator-metrics-exporter/pkg/api"
+	"github.com/3lvia/trivy-operator-metrics-exporter/pkg/appconfig"
+	"github.com/3lvia/trivy-operator-metrics-exporter/pkg/jobs"
+	"github.com/3lvia/trivy-operator-metrics-exporter/pkg/reports"
 	log "github.com/sirupsen/logrus"
 )
 

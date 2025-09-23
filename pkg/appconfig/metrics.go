@@ -30,7 +30,7 @@ const SERVICE_NAME = "trivy-operator-metrics-exporter"
 func configureMetrics() (*ApplicationMetrics, error) {
 	metricExporter, err := prometheus.New()
 	if err != nil {
-		return nil, fmt.Errorf("Failed to create Prometheus exporter: %v", err)
+		return nil, fmt.Errorf("failed to create Prometheus exporter: %v", err)
 	}
 
 	resource, err := resource.New(
@@ -40,7 +40,7 @@ func configureMetrics() (*ApplicationMetrics, error) {
 		resource.WithSchemaURL(semconv.SchemaURL),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to create resource: %v", err)
+		return nil, fmt.Errorf("failed to create resource: %v", err)
 	}
 
 	meterProvider := metric.NewMeterProvider(
@@ -56,7 +56,7 @@ func configureMetrics() (*ApplicationMetrics, error) {
 		meter.WithDescription("Total number of HTTP requests received"),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("Could not create counter: %s", err)
+		return nil, fmt.Errorf("could not create counter: %s", err)
 	}
 
 	httpRequestDurationSeconds, err := metrics.Float64Histogram(
@@ -81,7 +81,7 @@ func configureMetrics() (*ApplicationMetrics, error) {
 		),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("Could not create histogram: %s", err)
+		return nil, fmt.Errorf("could not create histogram: %s", err)
 	}
 
 	runtimeErrorsTotal, err := metrics.Int64Counter(
@@ -89,7 +89,7 @@ func configureMetrics() (*ApplicationMetrics, error) {
 		meter.WithDescription("Total number of runtime errors."),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("Could not create counter: %s", err)
+		return nil, fmt.Errorf("could not create counter: %s", err)
 	}
 
 	runtimeWarningsTotal, err := metrics.Int64Counter(
@@ -97,7 +97,7 @@ func configureMetrics() (*ApplicationMetrics, error) {
 		meter.WithDescription("Total number of runtime warnings."),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("Could not create counter: %s", err)
+		return nil, fmt.Errorf("could not create counter: %s", err)
 	}
 
 	vulnerabilities, err := metrics.Int64Gauge(
@@ -105,7 +105,7 @@ func configureMetrics() (*ApplicationMetrics, error) {
 		meter.WithDescription("Vulnerabilities found by Trivy Operator."),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("Could not create gauge: %s", err)
+		return nil, fmt.Errorf("could not create gauge: %s", err)
 	}
 
 	exposedSecrets, err := metrics.Int64Gauge(
@@ -113,7 +113,7 @@ func configureMetrics() (*ApplicationMetrics, error) {
 		meter.WithDescription("Exposed secrets found by Trivy Operator."),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("Could not create gauge: %s", err)
+		return nil, fmt.Errorf("could not create gauge: %s", err)
 	}
 
 	configAudits, err := metrics.Int64Gauge(
@@ -121,7 +121,7 @@ func configureMetrics() (*ApplicationMetrics, error) {
 		meter.WithDescription("Config audits found by Trivy Operator."),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("Could not create gauge: %s", err)
+		return nil, fmt.Errorf("could not create gauge: %s", err)
 	}
 
 	return &ApplicationMetrics{

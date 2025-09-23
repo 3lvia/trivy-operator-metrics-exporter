@@ -3,7 +3,7 @@ package appconfig
 import (
 	"context"
 
-	"github.com/3lvia/core/applications/trivy-operator-metrics-exporter/pkg/utils"
+	"github.com/3lvia/trivy-operator-metrics-exporter/pkg/utils"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/client-go/kubernetes"
 )

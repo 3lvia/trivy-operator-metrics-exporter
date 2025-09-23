@@ -3,7 +3,7 @@ package api
 import (
 	"net/http"
 
-	"github.com/3lvia/core/applications/trivy-operator-metrics-exporter/pkg/appconfig"
+	"github.com/3lvia/trivy-operator-metrics-exporter/pkg/appconfig"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 
