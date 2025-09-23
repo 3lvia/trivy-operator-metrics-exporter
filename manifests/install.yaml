@@ -6,6 +6,7 @@ metadata:
     app.kubernetes.io/name: trivy-operator-metrics-exporter
     app.kubernetes.io/part-of: trivy-operator-metrics-exporter
   name: trivy-operator-metrics-exporter
+  namespace: trivy-system
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -60,6 +61,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: trivy-operator-metrics-exporter
+  namespace: trivy-system
 ---
 apiVersion: v1
 kind: Service
@@ -69,9 +71,10 @@ metadata:
     app.kubernetes.io/name: trivy-operator-metrics-exporter
     app.kubernetes.io/part-of: trivy-operator-metrics-exporter
   name: trivy-operator-metrics-exporter
+  namespace: trivy-system
 spec:
   ports:
-  - name: http
+  - name: trivy-operator-metrics-exporter
     port: 80
     targetPort: 8080
   selector:
@@ -88,6 +91,7 @@ metadata:
     app.kubernetes.io/name: trivy-operator-metrics-exporter
     app.kubernetes.io/part-of: trivy-operator-metrics-exporter
   name: trivy-operator-metrics-exporter
+  namespace: trivy-system
 spec:
   selector:
     matchLabels:
@@ -140,3 +144,19 @@ spec:
         supplementalGroups:
         - 1001
       serviceAccountName: trivy-operator-metrics-exporter
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    app.kubernetes.io/component: controller
+    app.kubernetes.io/name: trivy-operator-metrics-exporter
+    app.kubernetes.io/part-of: trivy-operator-metrics-exporter
+  name: trivy-operator-metrics-exporter
+  namespace: trivy-system
+spec:
+  endpoints:
+  - port: trivy-operator-metrics-exporter
+  selector:
+    matchLabels:
+      app: trivy-operator-metrics-exporter
