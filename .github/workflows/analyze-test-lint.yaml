@@ -1,0 +1,69 @@
+name: Analyze, test and lint
+
+on:
+  push:
+    branches: ['trunk']
+    paths-ignore:
+      - 'README.md'
+      - 'manifests/**'
+  pull_request:
+    branches: ['trunk']
+    paths-ignore:
+      - 'README.md'
+      - 'manifests/**'
+
+jobs:
+  analyze:
+    name: Analyze
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    concurrency:
+      group: '${{ github.workflow }}-${{ github.ref }}-analyze'
+      cancel-in-progress: true
+    steps:
+      - uses: 3lvia/core-github-actions-templates/analyze@trunk
+        with:
+          language: 'go'
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    concurrency:
+      group: '${{ github.workflow }}-${{ github.ref }}-test'
+      cancel-in-progress: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          cache-dependency-path: 'go.sum' # TODO: is this needed?
+          go-version-file: 'go.mod'
+
+      - name: Run tests
+        run: make test
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    concurrency:
+      group: '${{ github.workflow }}-${{ github.ref }}-lint'
+      cancel-in-progress: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          cache-dependency-path: 'go.sum' # TODO: is this needed?
+          go-version-file: 'go.mod'
+
+      - name: Run linter
+        uses: golangci/golangci-lint-action@v8
+        with:
+          args: '--timeout=5m ./...'

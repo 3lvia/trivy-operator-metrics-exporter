@@ -1,0 +1,155 @@
+name: Build and release
+
+on:
+  push:
+    branches: [trunk]
+    paths-ignore:
+      - 'README.md'
+      - 'manifests/**'
+  pull_request:
+    branches: [trunk]
+    paths-ignore:
+      - 'README.md'
+      - 'manifests/**'
+  schedule:
+    - cron: '1 3 * * 5' # Every Friday at 03:01 UTC
+
+env:
+  IMAGE_NAME: 'ghcr.io/${{ github.repository }}'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+      packages: write
+    env:
+      TRIVY_SARIF: 'trivy-results.sarif'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Get version
+        run: echo "VERSION=v$(cat VERSION)" >> "$GITHUB_ENV"
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: 'ghcr.io'
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image with cache and push to registry
+        uses: docker/build-push-action@v6
+        with:
+          push: 'true'
+          tags: |
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ${{ (github.event_name == 'push' && github.ref == 'refs/heads/trunk') && format('{0}:latest', env.IMAGE_NAME) || '' }}
+          cache-from: 'type=registry,ref=${{ env.IMAGE_NAME }}:latest'
+          cache-to: 'type=inline'
+
+      - name: Scan image with Trivy
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          image-ref: '${{ env.IMAGE_NAME }}:${{ github.sha }}'
+          format: 'sarif'
+          exit-code: '0'
+          output: ${{ env.TRIVY_SARIF }}
+        env:
+          TRIVY_DB_REPOSITORY: 'public.ecr.aws/aquasecurity/trivy-db:2'
+          TRIVY_JAVA_DB_REPOSITORY: 'public.ecr.aws/aquasecurity/trivy-java-db:1'
+
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ${{ env.TRIVY_SARIF }}
+          category: 'Trivy'
+
+  pre-release:
+    name: Pre-release
+    needs: [build]
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' }}
+    outputs:
+      version-tag: ${{ steps.get-version.outputs.version_tag }}
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Resolve version
+        id: get-version
+        run: |
+          version=$(cat VERSION)
+          echo "VERSION_TAG=v$version" | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
+
+      - name: Create pre-release if new version
+        id: create-pre-release
+        run: |
+          latest_version=$(gh release list --json name,isLatest -q '.[] | select(.isLatest == true) | .name')
+          if [[ "$latest_version" == "$VERSION_TAG" ]]; then
+            echo "Version already released."
+            exit 0
+          fi
+
+          latest_prelrease_version=$(gh release list --json name,isPrerelease -q 'first(.[] | select(.isPrerelease == true) | .name)')
+          if [[ "$latest_prelrease_version" == "$VERSION_TAG" ]]; then
+            echo "Pre-release already created."
+            exit 0
+          fi
+
+          gh release create "$VERSION_TAG" --generate-notes --prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  tag-image:
+    name: Tag image
+    needs: [pre-release]
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' }}
+    env:
+      VERSION_TAG: ${{ needs.pre-release.outputs.version-tag }}
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: 'ghcr.io'
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tag image with version and push
+        run: |
+          docker pull "$IMAGE_NAME:$GITHUB_SHA"
+          docker tag "$IMAGE_NAME:$GITHUB_SHA" "$IMAGE_NAME:$VERSION_TAG"
+          docker push "$IMAGE_NAME:$VERSION_TAG"
+
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    needs: [pre-release, tag-image]
+    if: ${{ github.event_name == 'push' }}
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Release if new version and not alpha or beta
+        if: ${{ !contains(needs.build.outputs.version-tag, '-alpha') && !contains(needs.build.outputs.version-tag, '-beta') }}
+        run: gh release edit "$VERSION_TAG" --prerelease=false --latest=true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION_TAG: ${{ needs.pre-release.outputs.version-tag }}

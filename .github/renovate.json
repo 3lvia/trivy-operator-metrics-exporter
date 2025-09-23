@@ -1,0 +1,17 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "postUpdateOptions": ["gomodTidy", "gomodUpdateImportPaths"],
+  "minimumReleaseAge": "3 days",
+  "prCreation": "not-pending",
+  "packageRules": [
+    {
+      "matchUpdateTypes": ["patch"],
+      "automerge": true
+    },
+    {
+      "matchPackageNames": ["^k8s.io/", "^kubernetes-go$"],
+      "groupName": "Kubernetes packages"
+    }
+  ]
+}
