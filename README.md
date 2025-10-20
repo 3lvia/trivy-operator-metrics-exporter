@@ -17,12 +17,12 @@ make run
 
 1. Increment the version in `VERSION` file.
 
-1. Update `images.newTag` in `manifests/base/kustomization.yaml` to the new version.
+2. Update `images.newTag` in `manifests/base/kustomization.yaml` to the new version.
 
-1. Run this command:
+3. Run this command:
 
 ```bash
 kustomize build manifests/base > manifests/install.yaml
 ```
 
-1. Commit and push the changes.
+4. Commit and push the changes.
