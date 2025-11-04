@@ -3,7 +3,6 @@ package jobs
 import (
 	"context"
 	"os"
-	"time"
 
 	"github.com/3lvia/trivy-operator-metrics-exporter/pkg/appconfig"
 	"github.com/3lvia/trivy-operator-metrics-exporter/pkg/reports"
@@ -25,9 +24,8 @@ func ScheduleJobs(ctx context.Context, config appconfig.Config) {
 	}
 
 	_, err = scheduler.NewJob(
-		gocron.DurationRandomJob(
-			time.Minute*10,
-			time.Minute*20,
+		gocron.DurationJob(
+			config.MetricsUpdateInterval,
 		),
 		gocron.NewTask(
 			func() {
@@ -57,9 +55,8 @@ func ScheduleJobs(ctx context.Context, config appconfig.Config) {
 	}
 
 	_, err = scheduler.NewJob(
-		gocron.DurationRandomJob(
-			time.Minute*10,
-			time.Minute*20,
+		gocron.DurationJob(
+			config.MetricsUpdateInterval,
 		),
 		gocron.NewTask(
 			func() {
@@ -89,9 +86,8 @@ func ScheduleJobs(ctx context.Context, config appconfig.Config) {
 	}
 
 	_, err = scheduler.NewJob(
-		gocron.DurationRandomJob(
-			time.Minute*10,
-			time.Minute*20,
+		gocron.DurationJob(
+			config.MetricsUpdateInterval,
 		),
 		gocron.NewTask(
 			func() {
@@ -122,7 +118,7 @@ func ScheduleJobs(ctx context.Context, config appconfig.Config) {
 
 	_, err = scheduler.NewJob(
 		gocron.DurationJob(
-			time.Hour*1,
+			config.ExporterRestartInterval,
 		),
 		gocron.NewTask(
 			func() {
