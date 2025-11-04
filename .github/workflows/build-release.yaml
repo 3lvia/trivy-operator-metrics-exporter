@@ -61,6 +61,7 @@ jobs:
           format: 'sarif'
           exit-code: '0'
           output: ${{ env.TRIVY_SARIF }}
+          version: 'latest'
         env:
           TRIVY_DB_REPOSITORY: 'public.ecr.aws/aquasecurity/trivy-db:2'
           TRIVY_JAVA_DB_REPOSITORY: 'public.ecr.aws/aquasecurity/trivy-java-db:1'
@@ -99,8 +100,8 @@ jobs:
             exit 0
           fi
 
-          latest_prelrease_version=$(gh release list --json name,isPrerelease -q 'first(.[] | select(.isPrerelease == true) | .name)')
-          if [[ "$latest_prelrease_version" == "$VERSION_TAG" ]]; then
+          latest_prerelease_version=$(gh release list --json name,isPrerelease -q 'first(.[] | select(.isPrerelease == true) | .name)')
+          if [[ "$latest_prerelease_version" == "$VERSION_TAG" ]]; then
             echo "Pre-release already created."
             exit 0
           fi
