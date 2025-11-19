@@ -11,7 +11,6 @@ import (
 )
 
 type Config struct {
-	Environment                string                // required
 	Debug                      bool                  // required
 	Local                      bool                  // required
 	KubernetesClient           *kubernetes.Clientset // required
@@ -82,7 +81,6 @@ func CreateConfig(ctx context.Context) *Config {
 	}
 
 	return &Config{
-		Environment:                environment,
 		Debug:                      debug,
 		Local:                      local,
 		KubernetesClient:           kubernetesClient,
