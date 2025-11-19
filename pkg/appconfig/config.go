@@ -33,7 +33,6 @@ func parseTimeWithDefault(value string, defaultValue time.Duration) (time.Durati
 func CreateConfig(ctx context.Context) *Config {
 	log_ := log.WithField("service", "config")
 
-	environment := utils.GetEnvFallback("ENVIRONMENT", "dev")
 	debug := utils.GetEnvFallback("DEBUG", "false") == "true"
 	local := utils.GetEnvFallback("LOCAL", "false") == "true"
 
