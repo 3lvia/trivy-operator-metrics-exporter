@@ -11,7 +11,6 @@ import (
 )
 
 type Config struct {
-	Environment                string                // required
 	Debug                      bool                  // required
 	Local                      bool                  // required
 	KubernetesClient           *kubernetes.Clientset // required
@@ -34,7 +33,6 @@ func parseTimeWithDefault(value string, defaultValue time.Duration) (time.Durati
 func CreateConfig(ctx context.Context) *Config {
 	log_ := log.WithField("service", "config")
 
-	environment := utils.GetEnvFallback("ENVIRONMENT", "dev")
 	debug := utils.GetEnvFallback("DEBUG", "false") == "true"
 	local := utils.GetEnvFallback("LOCAL", "false") == "true"
 
@@ -82,7 +80,6 @@ func CreateConfig(ctx context.Context) *Config {
 	}
 
 	return &Config{
-		Environment:                environment,
 		Debug:                      debug,
 		Local:                      local,
 		KubernetesClient:           kubernetesClient,
