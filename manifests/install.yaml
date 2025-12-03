@@ -109,7 +109,7 @@ spec:
       - env:
         - name: GIN_MODE
           value: release
-        image: ghcr.io/3lvia/trivy-operator-metrics-exporter:v0.2.1
+        image: ghcr.io/3lvia/trivy-operator-metrics-exporter:v0.2.2
         imagePullPolicy: Always
         livenessProbe:
           httpGet:
