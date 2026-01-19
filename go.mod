@@ -4,7 +4,7 @@ go 1.24.9
 
 require (
 	github.com/gin-gonic/gin v1.11.0
-	github.com/go-co-op/gocron/v2 v2.18.2
+	github.com/go-co-op/gocron/v2 v2.19.0
 	github.com/prometheus/client_golang v1.23.2
 	github.com/sirupsen/logrus v1.9.3
 	go.opentelemetry.io/otel v1.39.0
