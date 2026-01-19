@@ -1,4 +1,4 @@
-main_package_path = ./cmd/trivy-operator-metrics-exporter
+main_package_path = .
 build_dir = ./.bin
 binary_name = trivy-operator-metrics-exporter
 go_os = $(shell go env GOOS)
