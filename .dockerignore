@@ -3,3 +3,4 @@ manifests/
 Makefile
 README.md
 LICENSE
+Dockerfile
