@@ -10,7 +10,7 @@ labels:
 
 images:
   - name: ghcr.io/3lvia/trivy-operator-metrics-exporter
-    newTag: v0.2.2
+    newTag: v0.2.3
 
 resources:
   - ./deployment
