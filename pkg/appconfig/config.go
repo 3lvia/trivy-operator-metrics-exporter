@@ -20,6 +20,7 @@ type Config struct {
 	EnableConfigAuditMetrics   bool                  // required
 	MetricsUpdateInterval      time.Duration         // required
 	ExporterRestartInterval    time.Duration         // required
+	MuteConfig                 MuteConfig            // required
 }
 
 func parseTimeWithDefault(value string, defaultValue time.Duration) (time.Duration, error) {
@@ -79,6 +80,11 @@ func CreateConfig(ctx context.Context) *Config {
 		log_.Fatalf("Could not parse EXPORTER_RESTART_INTERVAL: %+v", err)
 	}
 
+	muteConfig, err := loadMuteConfig()
+	if err != nil {
+		log_.Fatalf("Could not load mute config: %+v", err)
+	}
+
 	return &Config{
 		Debug:                      debug,
 		Local:                      local,
@@ -89,5 +95,6 @@ func CreateConfig(ctx context.Context) *Config {
 		EnableConfigAuditMetrics:   enableConfigAuditMetrics,
 		MetricsUpdateInterval:      metricsUpdateInterval,
 		ExporterRestartInterval:    exporterRestartInterval,
+		MuteConfig:                 *muteConfig,
 	}
 }
