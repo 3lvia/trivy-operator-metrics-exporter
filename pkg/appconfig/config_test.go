@@ -52,6 +52,7 @@ func TestParseTimeWithDefault(t *testing.T) {
 				if err != nil {
 					t.Errorf("Unexpected error: %v", err)
 				}
+
 				expectedDur, _ := time.ParseDuration(tt.expected)
 				if result != expectedDur {
 					t.Errorf("Expected %v, got %v", expectedDur, result)
