@@ -109,7 +109,7 @@ spec:
       - env:
         - name: GIN_MODE
           value: release
-        image: ghcr.io/3lvia/trivy-operator-metrics-exporter:v0.3.0
+        image: ghcr.io/3lvia/trivy-operator-metrics-exporter:v0.4.0
         imagePullPolicy: Always
         livenessProbe:
           httpGet:
@@ -142,19 +142,3 @@ spec:
         supplementalGroups:
         - 1001
       serviceAccountName: trivy-operator-metrics-exporter
----
-apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
-metadata:
-  labels:
-    app.kubernetes.io/component: controller
-    app.kubernetes.io/name: trivy-operator-metrics-exporter
-    app.kubernetes.io/part-of: trivy-operator-metrics-exporter
-  name: trivy-operator-metrics-exporter
-  namespace: trivy-system
-spec:
-  endpoints:
-  - port: trivy-operator-metrics-exporter
-  selector:
-    matchLabels:
-      app.kubernetes.io/name: trivy-operator-metrics-exporter

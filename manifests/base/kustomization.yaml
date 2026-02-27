@@ -10,9 +10,8 @@ labels:
 
 images:
   - name: ghcr.io/3lvia/trivy-operator-metrics-exporter
-    newTag: v0.3.0
+    newTag: v0.4.0
 
 resources:
   - ./deployment
-  - ./monitoring
   - ./rbac
