@@ -1,0 +1,27 @@
+version: '2'
+linters:
+  default: all
+  disable:
+    - cyclop
+    - depguard
+    - err113
+    - funlen
+    - gocognit
+    - goconst
+    - gocritic
+    - godox
+    - gosec
+    - mnd
+    - nestif
+    - noctx
+    - noinlineerr
+    - tagliatelle
+    - testpackage
+    - wrapcheck
+    - wsl
+formatters:
+  enable:
+    - gci
+    - gofmt
+    - gofumpt
+    - goimports

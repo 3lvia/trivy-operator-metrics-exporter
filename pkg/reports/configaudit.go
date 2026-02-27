@@ -1,5 +1,6 @@
 package reports
 
+/*
 import (
 	"context"
 	"encoding/json"
@@ -58,7 +59,7 @@ type ConfigAudit struct {
 }
 
 type ConfigAuditExported struct {
-	ConfigAudit  ConfigAudit `json:"configAUdit"`  // required
+	ConfigAudit  `json:"configAUdit"`  // required
 	ResourceName string      `json:"resourceName"` // required
 	ResourceKind string      `json:"resourceKind"` // required
 }
@@ -84,7 +85,6 @@ func (configAuditReportList ConfigAuditReportList) ToConfigAuditExportedList(con
 				ResourceKind: resourceKind,
 			})
 		}
-	}
 
 	return configAudits
 }
@@ -136,7 +136,7 @@ func UpdateConfigAuditMetrics(ctx context.Context, config appconfig.Config) erro
 				),
 			)
 		}
-	}
 
 	return nil
 }
+*/

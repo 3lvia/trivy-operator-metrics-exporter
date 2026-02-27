@@ -18,8 +18,10 @@ func TestTernary(t *testing.T) {
 }
 
 func TestGetEnvFallback(t *testing.T) {
-	const envKey = "TEST_ENV_KEY"
-	const fallbackValue = "default_value"
+	const (
+		envKey        = "TEST_ENV_KEY"
+		fallbackValue = "default_value"
+	)
 
 	// Test when the environment variable is not set
 	err := os.Unsetenv(envKey)
@@ -34,6 +36,7 @@ func TestGetEnvFallback(t *testing.T) {
 
 	// Test when the environment variable is set
 	expectedValue := "actual_value"
+
 	err = os.Setenv(envKey, expectedValue)
 	if err != nil {
 		t.Fatalf("Failed to set environment variable: %v", err)

@@ -4,16 +4,15 @@ import (
 	"net/http"
 
 	"github.com/3lvia/trivy-operator-metrics-exporter/pkg/appconfig"
+	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
-
-	"github.com/gin-gonic/gin"
 )
 
 func Start(config appconfig.Config) {
-	r := setupRouter(config, nil)
+	router := setupRouter(config, nil)
 
-	err := r.Run(":8080")
+	err := router.Run(":8080")
 	if err != nil {
 		log.Fatalf("Failed to start API: %v", err)
 	}
@@ -24,19 +23,20 @@ type SetupRouterOptions struct {
 }
 
 func setupRouter(config appconfig.Config, options *SetupRouterOptions) *gin.Engine {
-	r := gin.New()
-	r.Use(gin.Logger())
+	router := gin.New()
+	router.Use(gin.Logger())
+
 	if options == nil || !options.Testing {
-		r.Use(appconfig.Metrics(config))
+		router.Use(appconfig.Metrics(config))
 	}
 
-	r.GET("/status", func(c *gin.Context) {
+	router.GET("/status", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"status": "ok",
 		})
 	})
 
-	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
+	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
-	return r
+	return router
 }

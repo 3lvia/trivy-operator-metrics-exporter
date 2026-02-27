@@ -1,5 +1,6 @@
 package reports
 
+/*
 import (
 	"context"
 	"encoding/json"
@@ -61,7 +62,7 @@ type ExposedSecret struct {
 }
 
 type ExposedSecretExported struct {
-	ExposedSecret ExposedSecret `json:"exposedSecret"` // required
+	ExposedSecret `json:"exposedSecret"` // required
 	ImageName     string        `json:"imageName"`     // required
 	ImageTag      string        `json:"imageTag"`      // required
 }
@@ -76,7 +77,6 @@ func (exposedSecretReportList ExposedSecretReportList) ToExposedSecretExportedLi
 				ImageTag:      report.Report.Artifact.Tag,
 			})
 		}
-	}
 
 	return exposedSecrets
 }
@@ -127,7 +127,7 @@ func UpdateExposedSecretMetrics(ctx context.Context, config appconfig.Config) er
 				),
 			)
 		}
-	}
 
 	return nil
 }
+*/

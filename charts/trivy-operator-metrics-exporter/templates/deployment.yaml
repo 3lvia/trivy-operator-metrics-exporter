@@ -34,6 +34,15 @@ spec:
           env:
             - name: GIN_MODE
               value: release
+
+            - name: EXPORT_VULNERABILITY_REPORTS
+              value: {{ .Values.metrics.vulnerabilities.enabled | quote }}
+
+            - name: EXPORT_CONFIG_AUDIT_REPORTS
+              value: {{ .Values.metrics.configAudits.enabled | quote }}
+
+            - name: EXPORT_EXPOSED_SECRETS_REPORTS
+              value: {{ .Values.metrics.exposedSecrets.enabled | quote }}
           ports:
             - containerPort: 8080
           livenessProbe:
