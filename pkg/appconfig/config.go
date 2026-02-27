@@ -8,18 +8,19 @@ import (
 	"github.com/3lvia/trivy-operator-metrics-exporter/pkg/utils"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 )
 
 type Config struct {
 	Debug                      bool                  // required
 	Local                      bool                  // required
+	KubernetesConfig           *rest.Config          // required (NEW)
 	KubernetesClient           *kubernetes.Clientset // required
 	ApplicationMetrics         ApplicationMetrics    // required
 	EnableVulnerabilityMetrics bool                  // required
 	EnableExposedSecretMetrics bool                  // required
 	EnableConfigAuditMetrics   bool                  // required
-	MetricsUpdateInterval      time.Duration         // required
-	ExporterRestartInterval    time.Duration         // required
+	MetricsUpdateInterval      time.Duration         // required (probably unused with informers now)
 	MuteConfig                 MuteConfig            // required
 }
 
@@ -37,8 +38,8 @@ func CreateConfig(ctx context.Context) *Config {
 	debug := utils.GetEnvFallback("DEBUG", "false") == "true"
 	local := utils.GetEnvFallback("LOCAL", "false") == "true"
 
-	// Kubernetes client
-	kubernetesClient, err := configureKubernetesClient(local)
+	// Kubernetes config + client
+	kubeCfg, kubernetesClient, err := configureKubernetes(local)
 	if err != nil {
 		log_.Fatalf("Could not setup Kubernetes client: %+v", err)
 	}
@@ -72,14 +73,6 @@ func CreateConfig(ctx context.Context) *Config {
 		log_.Fatalf("Could not parse METRICS_UPDATE_INTERVAL: %+v", err)
 	}
 
-	exporterRestartInterval, err := parseTimeWithDefault(
-		os.Getenv("EXPORTER_RESTART_INTERVAL"),
-		1*time.Hour,
-	)
-	if err != nil {
-		log_.Fatalf("Could not parse EXPORTER_RESTART_INTERVAL: %+v", err)
-	}
-
 	muteConfig, err := loadMuteConfig()
 	if err != nil {
 		log_.Fatalf("Could not load mute config: %+v", err)
@@ -88,13 +81,13 @@ func CreateConfig(ctx context.Context) *Config {
 	return &Config{
 		Debug:                      debug,
 		Local:                      local,
+		KubernetesConfig:           kubeCfg,
 		KubernetesClient:           kubernetesClient,
 		ApplicationMetrics:         *applicationMetrics,
 		EnableVulnerabilityMetrics: enableVulnerabilityMetrics,
 		EnableExposedSecretMetrics: enableExposedSecretMetrics,
 		EnableConfigAuditMetrics:   enableConfigAuditMetrics,
 		MetricsUpdateInterval:      metricsUpdateInterval,
-		ExporterRestartInterval:    exporterRestartInterval,
 		MuteConfig:                 *muteConfig,
 	}
 }

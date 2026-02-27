@@ -1,5 +1,6 @@
 package reports
 
+/*
 import (
 	"context"
 	"encoding/json"
@@ -131,3 +132,4 @@ func UpdateExposedSecretMetrics(ctx context.Context, config appconfig.Config) er
 
 	return nil
 }
+*/

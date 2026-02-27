@@ -16,16 +16,17 @@ import (
 )
 
 type ApplicationMetrics struct {
-	httpRequestsReceivedTotal  meter.Int64Counter     // required
-	httpRequestDurationSeconds meter.Float64Histogram // required
-	RuntimeErrorsTotal         meter.Int64Counter     // required
-	RuntimeWarningsTotal       meter.Int64Counter     // required
-	Vulnerabilities            meter.Int64Gauge       // required
-	ExposedSecrets             meter.Int64Gauge       // required
-	ConfigAudits               meter.Int64Gauge       // required
+	httpRequestsReceivedTotal  meter.Int64Counter         // required
+	httpRequestDurationSeconds meter.Float64Histogram     // required
+	Vulnerabilities            meter.Int64ObservableGauge // required
+	ExposedSecrets             meter.Int64ObservableGauge // required
+	ConfigAudits               meter.Int64ObservableGauge // required
 }
 
-const SERVICE_NAME = "trivy-operator-metrics-exporter"
+const (
+	SERVICE_NAME      = "trivy-operator-metrics-exporter"
+	SERVICE_NAMESPACE = "trivy-system"
+)
 
 func configureMetrics() (*ApplicationMetrics, error) {
 	metricExporter, err := prometheus.New()
@@ -36,7 +37,7 @@ func configureMetrics() (*ApplicationMetrics, error) {
 	resource, err := resource.New(
 		context.Background(),
 		resource.WithAttributes(semconv.ServiceNameKey.String(SERVICE_NAME)),
-		resource.WithAttributes(semconv.ServiceNamespaceKey.String("core")),
+		resource.WithAttributes(semconv.ServiceNamespaceKey.String(SERVICE_NAMESPACE)),
 		resource.WithSchemaURL(semconv.SchemaURL),
 	)
 	if err != nil {
@@ -49,9 +50,9 @@ func configureMetrics() (*ApplicationMetrics, error) {
 	)
 	otel.SetMeterProvider(meterProvider)
 
-	metrics := meterProvider.Meter(SERVICE_NAME)
+	meter_ := meterProvider.Meter(SERVICE_NAME)
 
-	httpRequestsReceivedTotal, err := metrics.Int64Counter(
+	httpRequestsReceivedTotal, err := meter_.Int64Counter(
 		"http_requests_received_total",
 		meter.WithDescription("Total number of HTTP requests received"),
 	)
@@ -59,7 +60,7 @@ func configureMetrics() (*ApplicationMetrics, error) {
 		return nil, fmt.Errorf("could not create counter: %s", err)
 	}
 
-	httpRequestDurationSeconds, err := metrics.Float64Histogram(
+	httpRequestDurationSeconds, err := meter_.Float64Histogram(
 		"http_request_duration_seconds",
 		meter.WithDescription("The duration of HTTP requests processed by Gin, in seconds."),
 		meter.WithExplicitBucketBoundaries(
@@ -84,51 +85,33 @@ func configureMetrics() (*ApplicationMetrics, error) {
 		return nil, fmt.Errorf("could not create histogram: %s", err)
 	}
 
-	runtimeErrorsTotal, err := metrics.Int64Counter(
-		"runtime_errors_total",
-		meter.WithDescription("Total number of runtime errors."),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("could not create counter: %s", err)
-	}
-
-	runtimeWarningsTotal, err := metrics.Int64Counter(
-		"runtime_warnings_total",
-		meter.WithDescription("Total number of runtime warnings."),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("could not create counter: %s", err)
-	}
-
-	vulnerabilities, err := metrics.Int64Gauge(
+	vulnerabilities, err := meter_.Int64ObservableGauge(
 		"trivy_image_vulnerabilities",
 		meter.WithDescription("Vulnerabilities found by Trivy Operator."),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not create gauge: %s", err)
+		return nil, fmt.Errorf("could not create vulnerabilities gauge: %s", err)
 	}
 
-	exposedSecrets, err := metrics.Int64Gauge(
+	exposedSecrets, err := meter_.Int64ObservableGauge(
 		"trivy_exposed_secrets",
 		meter.WithDescription("Exposed secrets found by Trivy Operator."),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not create gauge: %s", err)
+		return nil, fmt.Errorf("could not create exposed secrets gauge: %s", err)
 	}
 
-	configAudits, err := metrics.Int64Gauge(
+	configAudits, err := meter_.Int64ObservableGauge(
 		"trivy_config_audits",
 		meter.WithDescription("Config audits found by Trivy Operator."),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not create gauge: %s", err)
+		return nil, fmt.Errorf("could not create config audits gauge: %s", err)
 	}
 
 	return &ApplicationMetrics{
 		httpRequestsReceivedTotal:  httpRequestsReceivedTotal,
 		httpRequestDurationSeconds: httpRequestDurationSeconds,
-		RuntimeErrorsTotal:         runtimeErrorsTotal,
-		RuntimeWarningsTotal:       runtimeWarningsTotal,
 		Vulnerabilities:            vulnerabilities,
 		ExposedSecrets:             exposedSecrets,
 		ConfigAudits:               configAudits,

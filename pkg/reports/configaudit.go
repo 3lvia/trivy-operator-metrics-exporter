@@ -1,5 +1,6 @@
 package reports
 
+/*
 import (
 	"context"
 	"encoding/json"
@@ -140,3 +141,4 @@ func UpdateConfigAuditMetrics(ctx context.Context, config appconfig.Config) erro
 
 	return nil
 }
+*/
