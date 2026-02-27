@@ -1,0 +1,35 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "trivy-operator-metrics-exporter.name" . }}
+  labels:
+    {{- include "trivy-operator-metrics-exporter.labels" . | nindent 4 }}
+rules:
+  - apiGroups:
+      - aquasecurity.github.io
+    resources:
+      - clustercompliancereports
+      - clustercompliancedetailreports
+      - clusterconfigauditreports
+      - clusterinfraassessmentreports
+      - clusterrbacassessmentreports
+      - clustersbomreports
+      - clustervulnerabilityreports
+      - configauditreports
+      - exposedsecretreports
+      - infraassessmentreports
+      - rbacassessmentreports
+      - sbomreports
+      - vulnerabilityreports
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - namespaces
+    verbs:
+      - get
+      - list
+      - watch

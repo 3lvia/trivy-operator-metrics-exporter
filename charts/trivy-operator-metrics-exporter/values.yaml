@@ -1,0 +1,7 @@
+image:
+  repository: ghcr.io/3lvia/trivy-operator-metrics-exporter
+  tag: v0.3.0
+  pullPolicy: Always
+
+serviceMonitor:
+  enabled: true

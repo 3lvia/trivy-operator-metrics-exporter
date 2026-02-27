@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "trivy-operator-metrics-exporter.name" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "trivy-operator-metrics-exporter.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "trivy-operator-metrics-exporter.labels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "trivy-operator-metrics-exporter.labels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "trivy-operator-metrics-exporter.name" . }}
+      securityContext:
+        fsGroup: 65534
+        runAsGroup: 65534
+        runAsUser: 65534
+        supplementalGroups:
+          - 65534
+      containers:
+        - name: trivy-operator-metrics-exporter
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: GIN_MODE
+              value: release
+          ports:
+            - containerPort: 8080
+          livenessProbe:
+            httpGet:
+              path: /status
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /status
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 30
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop:
+              - ALL
+            seccompProfile:
+              type: RuntimeDefault

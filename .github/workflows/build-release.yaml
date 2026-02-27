@@ -91,24 +91,78 @@ jobs:
           version=$(cat VERSION)
           echo "VERSION_TAG=v$version" | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
 
-      - name: Create pre-release if new version
-        id: create-pre-release
+      - name: Check if new version has been (pre-)released
+        id: check-release
         run: |
           latest_version=$(gh release list --json name,isLatest -q '.[] | select(.isLatest == true) | .name')
           if [[ "$latest_version" == "$VERSION_TAG" ]]; then
             echo "Version already released."
+            echo 'already-release=true' >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           latest_prerelease_version=$(gh release list --json name,isPrerelease -q 'first(.[] | select(.isPrerelease == true) | .name)')
           if [[ "$latest_prerelease_version" == "$VERSION_TAG" ]]; then
             echo "Pre-release already created."
-            exit 0
+            echo 'already-release=true' >> "$GITHUB_OUTPUT"
           fi
-
-          gh release create "$VERSION_TAG" --generate-notes --prerelease
         env:
           GH_TOKEN: ${{ github.token }}
+
+      - name: Create pre-release if new version
+        if: ${{ steps.check-release.outputs.already-release != 'true' }}
+        run: |
+          gh release create \
+            "$VERSION_TAG" \
+            --prerelease \
+            --latest \
+            --generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  build-release-chart:
+    name: Build and release Helm chart
+    runs-on: ubuntu-latest
+    env:
+      CHART_URL: 'oci://ghcr.io/${{ github.repository_owner }}/charts'
+      CHART_NAME: 'trivy-operator-metrics-exporter'
+    permissions:
+      contents: read
+      packages: write
+    if: ${{ github.event_name == 'push' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Check if chart already exists
+        id: check-chart
+        run: |
+          VERSION=$(cat VERSION)
+
+          if helm show chart \
+            "$CHART_URL/$CHART_NAME" \
+            --version "$VERSION" > /dev/null 2>&1; then
+            echo "Chart version already exists. Skipping chart release."
+            echo 'already-released=true' >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Login to GHCR
+        if: ${{ steps.check-chart.outputs.already-released != 'true' }}
+        run: echo "$REGISTRY_PASSWORD" | helm registry login "$REGISTRY" -u "$REGISTRY_USERNAME" --password-stdin
+        env:
+          REGISTRY: 'ghcr.io'
+          REGISTRY_USERNAME: ${{ github.actor }}
+          REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Package chart
+        if: ${{ steps.check-chart.outputs.already-released != 'true' }}
+        run: helm package "charts/$CHART_NAME"
+
+      - name: Push chart
+        if: ${{ steps.check-chart.outputs.already-released != 'true' }}
+        run: helm push $CHART_NAME-*.tgz "$CHART_URL"
 
   tag-image:
     name: Tag image
