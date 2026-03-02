@@ -201,8 +201,21 @@ func SetupConfigAuditMetrics(ctx context.Context, config appconfig.Config) error
 		return err
 	}
 
-	// Wait for sync before we start serving metrics
-	if !cache.WaitForCacheSync(informer.StopCh, informer.Informer.HasSynced) {
+	// Wait for sync before we start serving metrics. Tie the stop channel to the context
+	// so we don't block indefinitely if the informer cannot sync (e.g., missing CRD).
+	stopCh := make(chan struct{})
+	go func() {
+		defer close(stopCh)
+		select {
+		case <-ctx.Done():
+		case <-informer.StopCh:
+		}
+	}()
+
+	if !cache.WaitForCacheSync(stopCh, informer.Informer.HasSynced) {
+		if err := ctx.Err(); err != nil {
+			return fmt.Errorf("failed to sync configauditreport informer cache: %w", err)
+		}
 		return errors.New("failed to sync configauditreport informer cache")
 	}
 
