@@ -1,7 +1,10 @@
 package api
 
 import (
+	"context"
+	"errors"
 	"net/http"
+	"time"
 
 	"github.com/3lvia/trivy-operator-metrics-exporter/pkg/appconfig"
 	"github.com/gin-gonic/gin"
@@ -9,11 +12,33 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func Start(config appconfig.Config) {
-	router := setupRouter(config, nil)
+func Start(ctx context.Context, config appconfig.Config) {
+	router := setupRouter(ctx, config, nil)
 
-	err := router.Run(":8080")
-	if err != nil {
+	srv := &http.Server{ //nolint:exhaustruct
+		Addr:              ":8080",
+		Handler:           router,
+		ReadHeaderTimeout: 5 * time.Second, // gosec G112
+	}
+
+	// Shutdown goroutine: waits for ctx.Done() then gracefully stops the server.
+	go func() {
+		<-ctx.Done()
+		log.Info("API context canceled, shutting down HTTP server")
+
+		// Use ctx as parent to satisfy contextcheck.
+		shutdownCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+
+		if err := srv.Shutdown(shutdownCtx); err != nil {
+			log.Errorf("HTTP server Shutdown error: %v", err)
+		} else {
+			log.Info("HTTP server shut down gracefully")
+		}
+	}()
+
+	// Start server (blocking call).
+	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatalf("Failed to start API: %v", err)
 	}
 }
@@ -22,12 +47,12 @@ type SetupRouterOptions struct {
 	Testing bool
 }
 
-func setupRouter(config appconfig.Config, options *SetupRouterOptions) *gin.Engine {
+func setupRouter(ctx context.Context, config appconfig.Config, options *SetupRouterOptions) *gin.Engine {
 	router := gin.New()
 	router.Use(gin.Logger())
 
 	if options == nil || !options.Testing {
-		router.Use(appconfig.Metrics(config))
+		router.Use(appconfig.Metrics(ctx, config))
 	}
 
 	router.GET("/status", func(c *gin.Context) {

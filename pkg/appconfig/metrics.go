@@ -118,16 +118,18 @@ func configureMetrics(ctx context.Context) (*ApplicationMetrics, error) { //noli
 	}, nil
 }
 
-func Metrics(config Config) gin.HandlerFunc {
-	return func(ctx *gin.Context) {
+func Metrics(ctx context.Context, config Config) gin.HandlerFunc {
+	_ = ctx // keeps context for future use if needed
+
+	return func(ginCtx *gin.Context) {
 		t := time.Now()
 
-		ctx.Next()
+		ginCtx.Next()
 
 		latency := time.Since(t)
-		statusCode := ctx.Writer.Status()
-		method := ctx.Request.Method
-		endpoint := ctx.Request.URL.Path
+		statusCode := ginCtx.Writer.Status()
+		method := ginCtx.Request.Method
+		endpoint := ginCtx.Request.URL.Path
 
 		meterAttributes := []attribute.KeyValue{
 			attribute.Key("code").Int(statusCode),
@@ -136,13 +138,13 @@ func Metrics(config Config) gin.HandlerFunc {
 		}
 
 		config.ApplicationMetrics.httpRequestDurationSeconds.Record(
-			ctx.Request.Context(),
+			ctx,
 			latency.Seconds(),
 			meter.WithAttributes(meterAttributes...),
 		)
 
 		config.ApplicationMetrics.httpRequestsReceivedTotal.Add(
-			ctx.Request.Context(),
+			ctx,
 			1,
 			meter.WithAttributes(meterAttributes...),
 		)
