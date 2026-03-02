@@ -36,7 +36,9 @@ The exporter can be configured via the following environment variables:
 | `ENABLE_CONFIG_AUDIT_METRICS`   | Enable exporting ConfigAuditReports metrics   | `true`        |
 | `ENABLE_EXPOSED_SECRET_METRICS` | Enable exporting ExposedSecretReports metrics | `true`        |
 
-These can also be set via Helm values.
+Metrics are updated in real time using Kubernetes informers; there is no configurable polling or exporter restart interval.
+The previously documented `METRICS_UPDATE_INTERVAL` and `EXPORTER_RESTART_INTERVAL` settings have been removed and are no longer used by the exporter.
+The environment variables listed above can also be set via Helm values.
 
 ## Development
 
