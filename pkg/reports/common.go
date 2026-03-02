@@ -16,41 +16,26 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-// ForEachNamespace calls fn(namespaceName) for every namespace in the cluster.
-func ForEachNamespace(
-	ctx context.Context,
-	config appconfig.Config,
-	function func(ctx context.Context, namespace string) error,
-) error {
-	nsList, err := config.KubernetesClient.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to list namespaces: %w", err)
-	}
-
-	for _, ns := range nsList.Items {
-		if err := function(ctx, ns.Name); err != nil {
-			return err
-		}
-	}
-
-	return nil
+type DynamicInformer struct {
+	Informer cache.SharedIndexInformer
+	StopCh   chan struct{}
 }
 
 // setupDynamicInformer sets up a shared dynamic informer for the given GVR,
 // wires generic add/update/delete handlers that delegate to the provided functions,
 // starts the factory, and returns the informer + stopCh.
-func setupDynamicInformer(
+func setupDynamicInformer( //nolint:cyclop,funlen
 	config appconfig.Config,
 	gvr schema.GroupVersionResource,
 	logService string,
-	addOrUpdate func(u *unstructured.Unstructured),
+	addOrUpdate func(u *unstructured.Unstructured) error,
 	deleteFn func(u *unstructured.Unstructured),
-) (cache.SharedIndexInformer, chan struct{}, error) {
+) (*DynamicInformer, error) {
 	logger := log.WithField("service", logService)
 
 	dynClient, err := dynamic.NewForConfig(config.KubernetesConfig)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create dynamic client: %w", err)
+		return nil, fmt.Errorf("failed to create dynamic client: %w", err)
 	}
 
 	factory := dynamicinformer.NewFilteredDynamicSharedInformerFactory(
@@ -65,12 +50,18 @@ func setupDynamicInformer(
 	_, err = informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj any) {
 			if unstructured_, ok := obj.(*unstructured.Unstructured); ok {
-				addOrUpdate(unstructured_)
+				err := addOrUpdate(unstructured_)
+				if err != nil {
+					logger.Errorf("Error processing added object: %v", err)
+				}
 			}
 		},
 		UpdateFunc: func(oldObj, newObj any) {
 			if unstructured_, ok := newObj.(*unstructured.Unstructured); ok {
-				addOrUpdate(unstructured_)
+				err := addOrUpdate(unstructured_)
+				if err != nil {
+					logger.Errorf("Error processing updated object: %v", err)
+				}
 			}
 		},
 		DeleteFunc: func(obj any) {
@@ -91,7 +82,8 @@ func setupDynamicInformer(
 		},
 	})
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to add event handler to informer for %s: %w", gvr.Resource, err)
+		return nil,
+			fmt.Errorf("failed to add event handler to informer for %s: %w", gvr.Resource, err)
 	}
 
 	stopCh := make(chan struct{})
@@ -101,7 +93,10 @@ func setupDynamicInformer(
 
 	logger.Infof("%s informer started", gvr.Resource)
 
-	return informer, stopCh, nil
+	return &DynamicInformer{
+		Informer: informer,
+		StopCh:   stopCh,
+	}, nil
 }
 
 // Tiny helper to DRY the OTel callback registration too.

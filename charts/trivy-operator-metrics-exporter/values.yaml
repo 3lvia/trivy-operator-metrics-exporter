@@ -17,12 +17,6 @@ serviceMonitor:
 #       namespace: kube-system
 
 metrics:
-  # How often we check update the metrics from CRDs.
-  updateInterval: 10m
-
-  # How often the exporter pod is restarted (to reset metrics).
-  restartInterval: 1h
-
   # Should data from VulnerabilityReports be exported as metrics?
   vulnerabilities:
     enabled: true

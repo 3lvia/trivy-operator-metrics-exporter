@@ -1,10 +1,10 @@
 package appconfig
 
 import (
+	"context"
 	"os"
 	"time"
 
-	"github.com/3lvia/trivy-operator-metrics-exporter/pkg/utils"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -23,6 +23,14 @@ type Config struct {
 	MuteConfig                 MuteConfig            // required
 }
 
+func getEnvFallback(key string, fallback string) string {
+	if value, ok := os.LookupEnv(key); ok {
+		return value
+	}
+
+	return fallback
+}
+
 func parseTimeWithDefault(value string, defaultValue time.Duration) (time.Duration, error) {
 	if value == "" {
 		return defaultValue, nil
@@ -31,37 +39,37 @@ func parseTimeWithDefault(value string, defaultValue time.Duration) (time.Durati
 	return time.ParseDuration(value)
 }
 
-func CreateConfig() *Config {
-	log_ := log.WithField("service", "config")
+func CreateConfig(ctx context.Context) *Config {
+	logger := log.WithField("service", "config")
 
-	debug := utils.GetEnvFallback("DEBUG", "false") == "true"
-	local := utils.GetEnvFallback("LOCAL", "false") == "true"
+	debug := getEnvFallback("DEBUG", "false") == "true"
+	local := getEnvFallback("LOCAL", "false") == "true"
 
 	// Kubernetes config + client
 	kubeCfg, kubernetesClient, err := configureKubernetes(local)
 	if err != nil {
-		log_.Fatalf("Could not setup Kubernetes client: %+v", err)
+		logger.Fatalf("Could not setup Kubernetes client: %+v", err)
 	}
 
 	// Metrics
-	applicationMetrics, err := configureMetrics()
+	applicationMetrics, err := configureMetrics(ctx)
 	if err != nil {
-		log_.Fatalf("Could not configure metrics: %+v", err)
+		logger.Fatalf("Could not configure metrics: %+v", err)
 	}
 
-	enableVulnerabilityMetrics := os.Getenv("ENABLE_VULNERABILITY_METRICS") != "false"
+	enableVulnerabilityMetrics := os.Getenv("ENABLE_VULNERABILITY_METRICS") != "false" //nolint:goconst
 	if !enableVulnerabilityMetrics {
-		log_.Info("Vulnerability metrics are disabled via ENABLE_VULNERABILITY_METRICS=false")
+		logger.Info("Vulnerability metrics are disabled via ENABLE_VULNERABILITY_METRICS=false")
 	}
 
 	enableExposedSecretMetrics := os.Getenv("ENABLE_EXPOSED_SECRET_METRICS") != "false"
 	if !enableExposedSecretMetrics {
-		log_.Info("Exposed secret metrics are disabled via ENABLE_EXPOSED_SECRET_METRICS=false")
+		logger.Info("Exposed secret metrics are disabled via ENABLE_EXPOSED_SECRET_METRICS=false")
 	}
 
 	enableConfigAuditMetrics := os.Getenv("ENABLE_CONFIG_AUDIT_METRICS") != "false"
 	if !enableConfigAuditMetrics {
-		log_.Info("Config audit metrics are disabled via ENABLE_CONFIG_AUDIT_METRICS=false")
+		logger.Info("Config audit metrics are disabled via ENABLE_CONFIG_AUDIT_METRICS=false")
 	}
 
 	metricsUpdateInterval, err := parseTimeWithDefault(
@@ -69,12 +77,12 @@ func CreateConfig() *Config {
 		15*time.Minute,
 	)
 	if err != nil {
-		log_.Fatalf("Could not parse METRICS_UPDATE_INTERVAL: %+v", err)
+		logger.Fatalf("Could not parse METRICS_UPDATE_INTERVAL: %+v", err)
 	}
 
 	muteConfig, err := loadMuteConfig()
 	if err != nil {
-		log_.Fatalf("Could not load mute config: %+v", err)
+		logger.Fatalf("Could not load mute config: %+v", err)
 	}
 
 	return &Config{

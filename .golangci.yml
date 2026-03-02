@@ -2,19 +2,12 @@ version: '2'
 linters:
   default: all
   disable:
-    - cyclop
     - depguard
     - err113
-    - funlen
-    - gocognit
-    - goconst
-    - gocritic
-    - godox
-    - gosec
+    - prealloc
     - mnd
-    - nestif
-    - noctx
     - noinlineerr
+    - revive
     - tagliatelle
     - testpackage
     - wrapcheck

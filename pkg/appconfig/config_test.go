@@ -6,6 +6,8 @@ import (
 )
 
 func TestParseTimeWithDefault(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name         string
 		value        string
@@ -36,15 +38,17 @@ func TestParseTimeWithDefault(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			defaultDuration, err := time.ParseDuration(tt.defaultValue)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			defaultDuration, err := time.ParseDuration(test.defaultValue)
 			if err != nil {
 				t.Fatalf("Failed to parse default duration: %v", err)
 			}
 
-			result, err := parseTimeWithDefault(tt.value, defaultDuration)
-			if tt.expectError {
+			result, err := parseTimeWithDefault(test.value, defaultDuration)
+			if test.expectError {
 				if err == nil {
 					t.Errorf("Expected error but got none")
 				}
@@ -53,7 +57,7 @@ func TestParseTimeWithDefault(t *testing.T) {
 					t.Errorf("Unexpected error: %v", err)
 				}
 
-				expectedDur, _ := time.ParseDuration(tt.expected)
+				expectedDur, _ := time.ParseDuration(test.expected)
 				if result != expectedDur {
 					t.Errorf("Expected %v, got %v", expectedDur, result)
 				}
