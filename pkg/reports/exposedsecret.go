@@ -147,20 +147,13 @@ func (store *ExposedSecretStore) Delete(unstruct *unstructured.Unstructured) {
 	delete(store.data, key)
 }
 
-func (store *ExposedSecretStore) Snapshot() map[string][]ExposedSecretExported {
+func (store *ExposedSecretStore) ForEach(fn func(key string, exposedSecrets []ExposedSecretExported)) {
 	store.mutex.RLock()
 	defer store.mutex.RUnlock()
 
-	out := make(map[string][]ExposedSecretExported, len(store.data))
-	for key, value := range store.data {
-		// shallow copy slice is fine; ExposedSecretExported is value type
-		cp := make([]ExposedSecretExported, len(value))
-		copy(cp, value)
-
-		out[key] = cp
+	for key, exposedSecrets := range store.data {
+		fn(key, exposedSecrets)
 	}
-
-	return out
 }
 
 func SetupExposedSecretMetrics(ctx context.Context, config appconfig.Config) error {
@@ -174,7 +167,8 @@ func SetupExposedSecretMetrics(ctx context.Context, config appconfig.Config) err
 		Resource: "exposedsecretreports",
 	}
 
-	informer, err := setupDynamicInformer(
+	dynamicInformer, err := setupDynamicInformer(
+		ctx,
 		config,
 		exposedSecretGVR,
 		"exposedSecretInformer",
@@ -185,21 +179,10 @@ func SetupExposedSecretMetrics(ctx context.Context, config appconfig.Config) err
 		return err
 	}
 
-	// Wait for sync before we start serving metrics. Wrap WaitForCacheSync in a goroutine
-	// so we can respect context cancellation and avoid blocking indefinitely.
-	syncedCh := make(chan bool, 1)
-
-	go func() {
-		syncedCh <- cache.WaitForCacheSync(informer.StopCh, informer.Informer.HasSynced)
-	}()
-
-	select {
-	case <-ctx.Done():
-		return fmt.Errorf("failed to sync exposedsecretreport informer cache: %w", ctx.Err())
-	case synced := <-syncedCh:
-		if !synced {
-			return errors.New("failed to sync exposedsecretreport informer cache")
-		}
+	// Wait for sync before we start serving metrics.
+	// This will unblock either when the cache is synced or when ctx is canceled (Stop closes the channel).
+	if !cache.WaitForCacheSync(dynamicInformer.stopCh, dynamicInformer.Informer.HasSynced) {
+		return errors.New("failed to sync exposedsecretreport informer cache")
 	}
 
 	logger.Info("Exposedsecretreport informer cache synced")
@@ -209,7 +192,9 @@ func SetupExposedSecretMetrics(ctx context.Context, config appconfig.Config) err
 		"exposedSecretMetrics",
 		config.ApplicationMetrics.ExposedSecrets,
 		func(_ context.Context, observer meter.Observer) error {
-			return observeExposedSecretsFromStore(observer, config, store)
+			observeExposedSecretsFromStore(observer, config, store)
+
+			return nil
 		},
 	)
 	if err != nil {
@@ -223,21 +208,17 @@ func observeExposedSecretsFromStore(
 	observer meter.Observer,
 	config appconfig.Config,
 	store *ExposedSecretStore,
-) error {
+) {
 	logger := log.WithField("service", "observeExposedSecretMetrics")
 	logger.Debug("Observing exposed secret metrics from store")
 
-	snapshot := store.Snapshot()
-
-	for _, exposedSecrets := range snapshot {
+	store.ForEach(func(_ string, exposedSecrets []ExposedSecretExported) {
 		for _, exposedSecret := range exposedSecrets {
-			namespace := exposedSecret.Namespace
-
 			observer.ObserveInt64(
 				config.ApplicationMetrics.ExposedSecrets,
 				1,
 				meter.WithAttributes(
-					attribute.String("namespace", namespace),
+					attribute.String("namespace", exposedSecret.Namespace),
 					attribute.String("image_name", exposedSecret.ImageName),
 					attribute.String("image_tag", exposedSecret.ImageTag),
 					attribute.String("category", exposedSecret.ExposedSecret.Category),
@@ -249,7 +230,5 @@ func observeExposedSecretsFromStore(
 				),
 			)
 		}
-	}
-
-	return nil
+	})
 }

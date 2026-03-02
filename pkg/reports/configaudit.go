@@ -78,9 +78,7 @@ func getOwnerReferenceNameAndKind(configAuditReport ConfigAuditReport) (string, 
 		configAuditReport.Metadata.OwnerReferences[0].Kind
 }
 
-func (configAuditReportList ConfigAuditReportList) ToConfigAuditExportedList(
-	config appconfig.Config,
-) []ConfigAuditExported {
+func (configAuditReportList ConfigAuditReportList) ToConfigAuditExportedList() []ConfigAuditExported {
 	var configAudits []ConfigAuditExported
 
 	for _, report := range configAuditReportList.Items {
@@ -160,20 +158,13 @@ func (store *ConfigAuditStore) Delete(unstruct *unstructured.Unstructured) {
 	delete(store.data, key)
 }
 
-func (store *ConfigAuditStore) Snapshot() map[string][]ConfigAuditExported {
+func (store *ConfigAuditStore) ForEach(fn func(key string, configAudits []ConfigAuditExported)) {
 	store.mutex.RLock()
 	defer store.mutex.RUnlock()
 
-	out := make(map[string][]ConfigAuditExported, len(store.data))
-	for key, value := range store.data {
-		// shallow copy slice is fine; ConfigAuditExported is value type
-		cp := make([]ConfigAuditExported, len(value))
-		copy(cp, value)
-
-		out[key] = cp
+	for key, configAudits := range store.data {
+		fn(key, configAudits)
 	}
-
-	return out
 }
 
 // SetupConfigAuditMetrics creates a dynamic informer for configauditreports.
@@ -190,7 +181,8 @@ func SetupConfigAuditMetrics(ctx context.Context, config appconfig.Config) error
 		Resource: "configauditreports",
 	}
 
-	informer, err := setupDynamicInformer(
+	dynamicInformer, err := setupDynamicInformer(
+		ctx,
 		config,
 		configAuditGVR,
 		"configAuditInformer",
@@ -201,21 +193,9 @@ func SetupConfigAuditMetrics(ctx context.Context, config appconfig.Config) error
 		return err
 	}
 
-	// Wait for sync before we start serving metrics. Tie the stop channel to the context
-	// so we don't block indefinitely if the informer cannot sync (e.g., missing CRD).
-	stopCh := make(chan struct{})
-	go func() {
-		defer close(stopCh)
-		select {
-		case <-ctx.Done():
-		case <-informer.StopCh:
-		}
-	}()
-
-	if !cache.WaitForCacheSync(stopCh, informer.Informer.HasSynced) {
-		if err := ctx.Err(); err != nil {
-			return fmt.Errorf("failed to sync configauditreport informer cache: %w", err)
-		}
+	// Wait for sync before we start serving metrics.
+	// This will unblock either when the cache is synced or when ctx is canceled (Stop closes the channel).
+	if !cache.WaitForCacheSync(dynamicInformer.stopCh, dynamicInformer.Informer.HasSynced) {
 		return errors.New("failed to sync configauditreport informer cache")
 	}
 
@@ -226,7 +206,9 @@ func SetupConfigAuditMetrics(ctx context.Context, config appconfig.Config) error
 		"configAuditMetrics",
 		config.ApplicationMetrics.ConfigAudits,
 		func(_ context.Context, observer meter.Observer) error {
-			return observeConfigAuditsFromStore(observer, config, store)
+			observeConfigAuditsFromStore(observer, config, store)
+
+			return nil
 		},
 	)
 	if err != nil {
@@ -240,21 +222,17 @@ func observeConfigAuditsFromStore(
 	observer meter.Observer,
 	config appconfig.Config,
 	store *ConfigAuditStore,
-) error {
+) {
 	logger := log.WithField("service", "observeConfigAuditMetrics")
 	logger.Debug("Observing config audit metrics from store")
 
-	snapshot := store.Snapshot()
-
-	for _, configAudits := range snapshot {
+	store.ForEach(func(_ string, configAudits []ConfigAuditExported) {
 		for _, configAudit := range configAudits {
-			namespace := configAudit.Namespace
-
 			observer.ObserveInt64(
 				config.ApplicationMetrics.ConfigAudits,
 				1,
 				meter.WithAttributes(
-					attribute.String("namespace", namespace),
+					attribute.String("namespace", configAudit.Namespace),
 					attribute.String("resource_name", configAudit.ResourceName),
 					attribute.String("resource_kind", configAudit.ResourceKind),
 					// attribute.String("category", configAudit.ConfigAudit.Category),
@@ -267,7 +245,5 @@ func observeConfigAuditsFromStore(
 				),
 			)
 		}
-	}
-
-	return nil
+	})
 }

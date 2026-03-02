@@ -19,7 +19,6 @@ type Config struct {
 	EnableVulnerabilityMetrics bool                  // required
 	EnableExposedSecretMetrics bool                  // required
 	EnableConfigAuditMetrics   bool                  // required
-	MetricsUpdateInterval      time.Duration         // required (probably unused with informers now)
 	MuteConfig                 MuteConfig            // required
 }
 
@@ -72,14 +71,6 @@ func CreateConfig(ctx context.Context) *Config {
 		logger.Info("Config audit metrics are disabled via ENABLE_CONFIG_AUDIT_METRICS=false")
 	}
 
-	metricsUpdateInterval, err := parseTimeWithDefault(
-		os.Getenv("METRICS_UPDATE_INTERVAL"),
-		15*time.Minute,
-	)
-	if err != nil {
-		logger.Fatalf("Could not parse METRICS_UPDATE_INTERVAL: %+v", err)
-	}
-
 	muteConfig, err := loadMuteConfig()
 	if err != nil {
 		logger.Fatalf("Could not load mute config: %+v", err)
@@ -94,7 +85,6 @@ func CreateConfig(ctx context.Context) *Config {
 		EnableVulnerabilityMetrics: enableVulnerabilityMetrics,
 		EnableExposedSecretMetrics: enableExposedSecretMetrics,
 		EnableConfigAuditMetrics:   enableConfigAuditMetrics,
-		MetricsUpdateInterval:      metricsUpdateInterval,
 		MuteConfig:                 *muteConfig,
 	}
 }

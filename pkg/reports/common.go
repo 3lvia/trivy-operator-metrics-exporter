@@ -3,6 +3,7 @@ package reports
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/3lvia/trivy-operator-metrics-exporter/pkg/appconfig"
 	log "github.com/sirupsen/logrus"
@@ -18,13 +19,22 @@ import (
 
 type DynamicInformer struct {
 	Informer cache.SharedIndexInformer
-	StopCh   chan struct{}
+	stopCh   chan struct{}
+	stopOnce sync.Once
+}
+
+// Stop shuts down the informer factory. Safe to call multiple times.
+func (d *DynamicInformer) Stop() {
+	d.stopOnce.Do(func() {
+		close(d.stopCh)
+	})
 }
 
 // setupDynamicInformer sets up a shared dynamic informer for the given GVR,
 // wires generic add/update/delete handlers that delegate to the provided functions,
-// starts the factory, and returns the informer + stopCh.
+// starts the factory, and returns a DynamicInformer whose lifetime is tied to ctx.
 func setupDynamicInformer( //nolint:cyclop,funlen
+	ctx context.Context,
 	config appconfig.Config,
 	gvr schema.GroupVersionResource,
 	logService string,
@@ -50,16 +60,14 @@ func setupDynamicInformer( //nolint:cyclop,funlen
 	_, err = informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj any) {
 			if unstructured_, ok := obj.(*unstructured.Unstructured); ok {
-				err := addOrUpdate(unstructured_)
-				if err != nil {
+				if err := addOrUpdate(unstructured_); err != nil {
 					logger.Errorf("Error processing added object: %v", err)
 				}
 			}
 		},
 		UpdateFunc: func(oldObj, newObj any) {
 			if unstructured_, ok := newObj.(*unstructured.Unstructured); ok {
-				err := addOrUpdate(unstructured_)
-				if err != nil {
+				if err := addOrUpdate(unstructured_); err != nil {
 					logger.Errorf("Error processing updated object: %v", err)
 				}
 			}
@@ -88,15 +96,25 @@ func setupDynamicInformer( //nolint:cyclop,funlen
 
 	stopCh := make(chan struct{})
 
-	// Start informer in background
-	go factory.Start(stopCh)
+	dynamicInformer := &DynamicInformer{
+		Informer: informer,
+		stopCh:   stopCh,
+		stopOnce: sync.Once{},
+	}
+
+	// Start informer factory in background
+	go factory.Start(dynamicInformer.stopCh)
+
+	// Tie informer lifetime to ctx
+	go func() {
+		<-ctx.Done()
+		logger.Infof("%s informer context canceled, stopping informer", gvr.Resource)
+		dynamicInformer.Stop()
+	}()
 
 	logger.Infof("%s informer started", gvr.Resource)
 
-	return &DynamicInformer{
-		Informer: informer,
-		StopCh:   stopCh,
-	}, nil
+	return dynamicInformer, nil
 }
 
 // Tiny helper to DRY the OTel callback registration too.
