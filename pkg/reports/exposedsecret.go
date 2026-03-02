@@ -1,15 +1,19 @@
 package reports
 
-/*
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"sync"
 
 	"github.com/3lvia/trivy-operator-metrics-exporter/pkg/appconfig"
 	log "github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel/attribute"
 	meter "go.opentelemetry.io/otel/metric"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/tools/cache"
 )
 
 type ExposedSecretReportList struct {
@@ -62,60 +66,166 @@ type ExposedSecret struct {
 }
 
 type ExposedSecretExported struct {
-	ExposedSecret `json:"exposedSecret"` // required
+	Namespace     string        `json:"namespace"`     // required
+	ExposedSecret ExposedSecret `json:"exposedSecret"` // required
 	ImageName     string        `json:"imageName"`     // required
 	ImageTag      string        `json:"imageTag"`      // required
 }
 
-func (exposedSecretReportList ExposedSecretReportList) ToExposedSecretExportedList(config appconfig.Config) []ExposedSecretExported {
+func (exposedSecretReportList ExposedSecretReportList) ToExposedSecretExportedList() []ExposedSecretExported {
 	var exposedSecrets []ExposedSecretExported
+
 	for _, report := range exposedSecretReportList.Items {
 		for _, exposedSecret := range report.Report.Secrets {
 			exposedSecrets = append(exposedSecrets, ExposedSecretExported{
+				Namespace:     report.Metadata.Namespace,
 				ExposedSecret: exposedSecret,
 				ImageName:     report.Report.Artifact.Repository,
 				ImageTag:      report.Report.Artifact.Tag,
 			})
 		}
+	}
 
 	return exposedSecrets
 }
 
-func UpdateExposedSecretMetrics(ctx context.Context, config appconfig.Config) error {
-	log_ := log.WithField("service", "updateExposedSecretMetrics")
-	log_.Info("Updating exposedSecret metrics.")
+func (report ExposedSecretReport) ToExposedSecretExportedList() []ExposedSecretExported {
+	var exposedSecrets []ExposedSecretExported
+	for _, exposedSecret := range report.Report.Secrets {
+		exposedSecrets = append(exposedSecrets, ExposedSecretExported{
+			Namespace:     report.Metadata.Namespace,
+			ExposedSecret: exposedSecret,
+			ImageName:     report.Report.Artifact.Repository,
+			ImageTag:      report.Report.Artifact.Tag,
+		})
+	}
 
-	namespaceList, err := config.KubernetesClient.CoreV1().Namespaces().List(
-		ctx,
-		v1.ListOptions{},
+	return exposedSecrets
+}
+
+type ExposedSecretStore struct {
+	mutex sync.RWMutex
+	data  map[string][]ExposedSecretExported // key: namespace/name
+}
+
+func NewExposedSecretStore() *ExposedSecretStore {
+	return &ExposedSecretStore{
+		mutex: sync.RWMutex{},
+		data:  make(map[string][]ExposedSecretExported),
+	}
+}
+
+func (store *ExposedSecretStore) Upsert(unstruct *unstructured.Unstructured) error {
+	// Convert unstructured → ExposedSecretReport
+	reportBytes, err := json.Marshal(unstruct.Object)
+	if err != nil {
+		return err
+	}
+
+	var report ExposedSecretReport
+	if err := json.Unmarshal(reportBytes, &report); err != nil {
+		return err
+	}
+
+	exports := report.ToExposedSecretExportedList()
+	key := unstruct.GetNamespace() + "/" + unstruct.GetName()
+
+	store.mutex.Lock()
+	defer store.mutex.Unlock()
+
+	store.data[key] = exports
+
+	return nil
+}
+
+func (store *ExposedSecretStore) Delete(unstruct *unstructured.Unstructured) {
+	key := unstruct.GetNamespace() + "/" + unstruct.GetName()
+
+	store.mutex.Lock()
+	defer store.mutex.Unlock()
+
+	delete(store.data, key)
+}
+
+func (store *ExposedSecretStore) Snapshot() map[string][]ExposedSecretExported {
+	store.mutex.RLock()
+	defer store.mutex.RUnlock()
+
+	out := make(map[string][]ExposedSecretExported, len(store.data))
+	for key, value := range store.data {
+		// shallow copy slice is fine; ExposedSecretExported is value type
+		cp := make([]ExposedSecretExported, len(value))
+		copy(cp, value)
+
+		out[key] = cp
+	}
+
+	return out
+}
+
+func SetupExposedSecretMetrics(ctx context.Context, config appconfig.Config) error {
+	logger := log.WithField("service", "exposedSecretInformer")
+
+	store := NewExposedSecretStore()
+
+	exposedSecretGVR := schema.GroupVersionResource{
+		Group:    "aquasecurity.github.io",
+		Version:  "v1alpha1",
+		Resource: "exposedsecretreports",
+	}
+
+	informer, err := setupDynamicInformer(
+		config,
+		exposedSecretGVR,
+		"exposedSecretInformer",
+		store.Upsert,
+		store.Delete,
 	)
 	if err != nil {
 		return err
 	}
 
-	for _, namespace := range namespaceList.Items {
-		log_.Infof("Checking namespace: %s", namespace.Name)
+	// Wait for sync before we start serving metrics
+	if !cache.WaitForCacheSync(informer.StopCh, informer.Informer.HasSynced) {
+		return errors.New("failed to sync exposedsecretreport informer cache")
+	}
 
-		var exposedSecretReportList ExposedSecretReportList
-		exposedSecretReportListRaw, err := config.KubernetesClient.RESTClient().Get().AbsPath(
-			"/apis/aquasecurity.github.io/v1alpha1/namespaces/" + namespace.Name + "/exposedsecretreports",
-		).DoRaw(ctx)
-		if err != nil {
-			return err
-		}
+	logger.Info("Exposedsecretreport informer cache synced")
 
-		if err := json.Unmarshal(exposedSecretReportListRaw, &exposedSecretReportList); err != nil {
-			return err
-		}
+	// Register OTel callback that reads from store
+	err = registerObservableGaugeCallback(
+		"exposedSecretMetrics",
+		config.ApplicationMetrics.ExposedSecrets,
+		func(_ context.Context, observer meter.Observer) error {
+			return observeExposedSecretsFromStore(observer, config, store)
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to register exposed secret metrics callback: %w", err)
+	}
 
-		exposedSecrets := exposedSecretReportList.ToExposedSecretExportedList(config)
+	return nil
+}
+
+func observeExposedSecretsFromStore(
+	observer meter.Observer,
+	config appconfig.Config,
+	store *ExposedSecretStore,
+) error {
+	logger := log.WithField("service", "observeExposedSecretMetrics")
+	logger.Debug("Observing exposed secret metrics from store")
+
+	snapshot := store.Snapshot()
+
+	for _, exposedSecrets := range snapshot {
 		for _, exposedSecret := range exposedSecrets {
-			log_.Debugf("Found exposed secret: %s", exposedSecret.ExposedSecret.Title)
-			config.ApplicationMetrics.ExposedSecrets.Record(
-				ctx,
+			namespace := exposedSecret.Namespace
+
+			observer.ObserveInt64(
+				config.ApplicationMetrics.ExposedSecrets,
 				1,
 				meter.WithAttributes(
-					attribute.String("namespace", namespace.Name),
+					attribute.String("namespace", namespace),
 					attribute.String("image_name", exposedSecret.ImageName),
 					attribute.String("image_tag", exposedSecret.ImageTag),
 					attribute.String("category", exposedSecret.ExposedSecret.Category),
@@ -127,7 +237,7 @@ func UpdateExposedSecretMetrics(ctx context.Context, config appconfig.Config) er
 				),
 			)
 		}
+	}
 
 	return nil
 }
-*/

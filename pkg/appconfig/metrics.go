@@ -28,14 +28,14 @@ const (
 	SERVICE_NAMESPACE = "trivy-system"
 )
 
-func configureMetrics() (*ApplicationMetrics, error) {
+func configureMetrics(ctx context.Context) (*ApplicationMetrics, error) { //nolint:funlen
 	metricExporter, err := prometheus.New()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Prometheus exporter: %w", err)
 	}
 
 	resource, err := resource.New(
-		context.Background(),
+		ctx,
 		resource.WithAttributes(semconv.ServiceNameKey.String(SERVICE_NAME)),
 		resource.WithAttributes(semconv.ServiceNamespaceKey.String(SERVICE_NAMESPACE)),
 		resource.WithSchemaURL(semconv.SchemaURL),
@@ -133,8 +133,6 @@ func Metrics(config Config) gin.HandlerFunc {
 			attribute.Key("code").Int(statusCode),
 			attribute.Key("method").String(method),
 			attribute.Key("endpoint").String(endpoint),
-			// TODO: this shouldn't be needed, we don't have controllers
-			attribute.Key("controller").String("gin"),
 		}
 
 		config.ApplicationMetrics.httpRequestDurationSeconds.Record(
