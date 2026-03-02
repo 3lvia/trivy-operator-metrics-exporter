@@ -35,13 +35,13 @@ spec:
             - name: GIN_MODE
               value: release
 
-            - name: EXPORT_VULNERABILITY_REPORTS
+            - name: ENABLE_VULNERABILITY_METRICS
               value: {{ .Values.metrics.vulnerabilities.enabled | quote }}
 
-            - name: EXPORT_CONFIG_AUDIT_REPORTS
+            - name: ENABLE_CONFIG_AUDIT_METRICS
               value: {{ .Values.metrics.configAudits.enabled | quote }}
 
-            - name: EXPORT_EXPOSED_SECRETS_REPORTS
+            - name: ENABLE_EXPOSED_SECRET_METRICS
               value: {{ .Values.metrics.exposedSecrets.enabled | quote }}
           ports:
             - containerPort: 8080
