@@ -185,9 +185,21 @@ func SetupExposedSecretMetrics(ctx context.Context, config appconfig.Config) err
 		return err
 	}
 
-	// Wait for sync before we start serving metrics
-	if !cache.WaitForCacheSync(informer.StopCh, informer.Informer.HasSynced) {
-		return errors.New("failed to sync exposedsecretreport informer cache")
+	// Wait for sync before we start serving metrics. Wrap WaitForCacheSync in a goroutine
+	// so we can respect context cancellation and avoid blocking indefinitely.
+	syncedCh := make(chan bool, 1)
+
+	go func() {
+		syncedCh <- cache.WaitForCacheSync(informer.StopCh, informer.Informer.HasSynced)
+	}()
+
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("failed to sync exposedsecretreport informer cache: %w", ctx.Err())
+	case synced := <-syncedCh:
+		if !synced {
+			return errors.New("failed to sync exposedsecretreport informer cache")
+		}
 	}
 
 	logger.Info("Exposedsecretreport informer cache synced")
