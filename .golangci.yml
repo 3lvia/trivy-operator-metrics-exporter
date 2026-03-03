@@ -1,0 +1,20 @@
+version: '2'
+linters:
+  default: all
+  disable:
+    - depguard
+    - err113
+    - prealloc
+    - mnd
+    - noinlineerr
+    - revive
+    - tagliatelle
+    - testpackage
+    - wrapcheck
+    - wsl
+formatters:
+  enable:
+    - gci
+    - gofmt
+    - gofumpt
+    - goimports

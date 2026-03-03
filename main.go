@@ -2,16 +2,24 @@ package main
 
 import (
 	"context"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/3lvia/trivy-operator-metrics-exporter/pkg/api"
 	"github.com/3lvia/trivy-operator-metrics-exporter/pkg/appconfig"
-	"github.com/3lvia/trivy-operator-metrics-exporter/pkg/jobs"
 	"github.com/3lvia/trivy-operator-metrics-exporter/pkg/reports"
 	log "github.com/sirupsen/logrus"
 )
 
 func main() {
-	ctx := context.Background()
+	ctx, cancel := signal.NotifyContext(
+		context.Background(),
+		os.Interrupt,
+		syscall.SIGTERM,
+	)
+	defer cancel()
+
 	config := appconfig.CreateConfig(ctx)
 
 	if config.Debug {
@@ -20,26 +28,22 @@ func main() {
 	}
 
 	if config.EnableVulnerabilityMetrics {
-		err := reports.UpdateVulnerabilityMetrics(ctx, *config)
-		if err != nil {
-			log.Fatalf("Failed to update vulnerability metrics: %v", err)
+		if err := reports.SetupVulnerabilityMetrics(ctx, *config); err != nil {
+			log.Fatalf("Failed to setup vulnerability metrics: %v", err) //nolint:gocritic
 		}
 	}
 
 	if config.EnableExposedSecretMetrics {
-		err := reports.UpdateExposedSecretMetrics(ctx, *config)
-		if err != nil {
-			log.Fatalf("Failed to update exposed secrets metrics: %v", err)
+		if err := reports.SetupExposedSecretMetrics(ctx, *config); err != nil {
+			log.Fatalf("Failed to setup exposed secret metrics: %v", err)
 		}
 	}
 
 	if config.EnableConfigAuditMetrics {
-		err := reports.UpdateConfigAuditMetrics(ctx, *config)
-		if err != nil {
-			log.Fatalf("Failed to update config audit metrics: %v", err)
+		if err := reports.SetupConfigAuditMetrics(ctx, *config); err != nil {
+			log.Fatalf("Failed to setup config audit metrics: %v", err)
 		}
 	}
 
-	jobs.ScheduleJobs(ctx, *config)
-	api.Start(*config)
+	api.Start(ctx, *config)
 }

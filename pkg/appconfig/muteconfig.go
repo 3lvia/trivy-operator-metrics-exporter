@@ -7,7 +7,7 @@ import (
 )
 
 type MuteConfig struct {
-	Vulnerabilities []VulnerabilityMute // required
+	Vulnerabilities []VulnerabilityMute `yaml:"vulnerabilities,omitempty"` // optional
 }
 
 type VulnerabilityMute struct {
@@ -18,7 +18,7 @@ type VulnerabilityMute struct {
 
 func loadMuteConfig() (*MuteConfig, error) {
 	if _, err := os.Stat("mute.yaml"); os.IsNotExist(err) {
-		return &MuteConfig{}, nil
+		return &MuteConfig{}, nil //nolint:exhaustruct
 	}
 
 	contents, err := os.ReadFile("mute.yaml")
