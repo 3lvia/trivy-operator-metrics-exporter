@@ -9,35 +9,34 @@ import (
 	"k8s.io/client-go/util/homedir"
 )
 
-// configureKubernetes returns both rest.Config and typed clientset.
-func configureKubernetes(local bool) (*rest.Config, *kubernetes.Clientset, error) {
-	kubeCfg, err := configureKubernetesConfig(local)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	clientset, err := kubernetes.NewForConfig(kubeCfg)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return kubeCfg, clientset, nil
-}
-
-func configureKubernetesConfig(local bool) (*rest.Config, error) {
-	if local {
-		kubeCfg, err := clientcmd.BuildConfigFromFlags("", filepath.Join(homedir.HomeDir(), ".kube", "config"))
-		if err != nil {
-			return nil, err
-		}
-
-		return kubeCfg, nil
-	}
-
-	kubeCfg, err := rest.InClusterConfig()
+func configureKubernetesClient(local bool) (*kubernetes.Clientset, error) {
+	kubernetesConfig, err := configureKubernetesConfig(local)
 	if err != nil {
 		return nil, err
 	}
 
-	return kubeCfg, nil
+	clientset, err := kubernetes.NewForConfig(kubernetesConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	return clientset, nil
+}
+
+func configureKubernetesConfig(local bool) (*rest.Config, error) {
+	if local {
+		kubernetesConfig, err := clientcmd.BuildConfigFromFlags("", filepath.Join(homedir.HomeDir(), ".kube", "config"))
+		if err != nil {
+			return nil, err
+		}
+
+		return kubernetesConfig, nil
+	} else {
+		kubernetesConfig, err := rest.InClusterConfig()
+		if err != nil {
+			return nil, err
+		}
+
+		return kubernetesConfig, nil
+	}
 }
