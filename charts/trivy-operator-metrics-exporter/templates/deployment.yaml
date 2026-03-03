@@ -21,6 +21,10 @@ spec:
         runAsUser: 65534
         supplementalGroups:
           - 65534
+      volumes:
+        - name: mute-config
+          configMap:
+            name: {{ include "trivy-operator-metrics-exporter.name" . }}-mute-config
       containers:
         - name: trivy-operator-metrics-exporter
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
@@ -51,3 +55,8 @@ spec:
               - ALL
             seccompProfile:
               type: RuntimeDefault
+          volumeMounts:
+            - name: mute-config
+              mountPath: /mute.yaml
+              subPath: mute.yaml
+              readOnly: true

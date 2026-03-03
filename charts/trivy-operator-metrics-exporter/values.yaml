@@ -1,7 +1,16 @@
 image:
   repository: ghcr.io/3lvia/trivy-operator-metrics-exporter
-  tag: v0.3.0
+  tag: v0.4.1
   pullPolicy: Always
 
 serviceMonitor:
   enabled: true
+#
+# muteConfig: |
+#   vulnerabilities:
+#     - id: CVE-2025-15467
+#       namespace: traefik
+#       imageName: curlimages/curl
+
+#     - id: CVE-2025-15467
+#       namespace: kube-system
