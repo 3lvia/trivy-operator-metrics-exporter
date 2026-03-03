@@ -1,3 +1,4 @@
+{{- if .Values.muteConfig }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -7,4 +8,5 @@ metadata:
     {{- include "trivy-operator-metrics-exporter.labels" . | nindent 4 }}
 data:
   mute.yaml: |-
-    {{- toYaml .Values.muteConfig | nindent 4 }}
+    {{- .Values.muteConfig | nindent 4 }}
+{{- end }}
