@@ -6,25 +6,26 @@ image:
 serviceMonitor:
   enabled: true
 
-#
-# muteConfig: |
-#   vulnerabilities:
-#     - id: CVE-2025-15467
-#       namespace: traefik
-#       imageName: curlimages/curl
-
-#     - id: CVE-2025-15467
-#       namespace: kube-system
-
 metrics:
-  # Should data from VulnerabilityReports be exported as metrics?
   vulnerabilities:
     enabled: true
 
-  # Should data from ConfigAuditReports be exported as metrics?
   configAudits:
     enabled: true
 
-  # Should data from SecretReports be exported as metrics?
   exposedSecrets:
     enabled: true
+#
+# muteConfig: |
+#   vulnerabilities:
+#     # Mutes all vulnerabilities with CVE-2025-15467, regardless of the namespace or image.
+#     - id: CVE-2025-15467
+
+#     # Mutes all vulnerabilities with CVE-2025-15467 in the "traefik" namespace, regardless of the image.
+#     - id: CVE-2025-15467
+#       namespace: traefik
+
+#     # Mutes all vulnerabilities with CVE-2025-15467 in any namespace, but only for the "curlimages/curl" image.
+#     - id: CVE-2025-15467
+#       namespace: traefik
+#       imageName: curlimages/curl

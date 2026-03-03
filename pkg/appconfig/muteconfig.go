@@ -12,7 +12,8 @@ type MuteConfig struct {
 
 type VulnerabilityMute struct {
 	ID        string `yaml:"id"`                  // required
-	Namespace string `yaml:"namespace"`           // required
+	Reason    string `yaml:"reason"`              // required
+	Namespace string `yaml:"namespace,omitempty"` // optional
 	ImageName string `yaml:"imageName,omitempty"` // optional
 }
 
@@ -34,10 +35,26 @@ func loadMuteConfig() (*MuteConfig, error) {
 	return &muteConfig, nil
 }
 
-func (muteConfig *MuteConfig) IsMutedVulnerability(namespace, vulnerabilityID, imageName string) bool {
+func (muteConfig *MuteConfig) IsMutedVulnerability(vulnID, namespace, imageName string) bool {
+	if vulnID == "" {
+		return false
+	}
+
+	// If only ID is specified, mute all vulnerabilities with the same ID.
+	//
+	// If ID and Namespace are specified:
+	// - mute all vulnerabilities with the same ID in the same Namespace.
+	//
+	// If ID and ImageName are specified:
+	// - mute all vulnerabilities with the same ID in the same ImageName.
+	//
+	// If ID, Namespace and ImageName are specified:
+	// - mute all vulnerabilities with the same ID in the same Namespace and the same ImageName.
+	//
 	for _, mute := range muteConfig.Vulnerabilities {
-		if mute.ID == vulnerabilityID && mute.Namespace == namespace {
-			if mute.ImageName == "" || mute.ImageName == imageName {
+		if mute.ID == vulnID {
+			if (mute.Namespace == "" || mute.Namespace == namespace) &&
+				(mute.ImageName == "" || mute.ImageName == imageName) {
 				return true
 			}
 		}
