@@ -13,7 +13,11 @@ import (
 )
 
 func main() {
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	ctx, cancel := signal.NotifyContext(
+		context.Background(),
+		os.Interrupt,
+		syscall.SIGTERM,
+	)
 	defer cancel()
 
 	config := appconfig.CreateConfig(ctx)
@@ -25,25 +29,19 @@ func main() {
 
 	if config.EnableVulnerabilityMetrics {
 		if err := reports.SetupVulnerabilityMetrics(ctx, *config); err != nil {
-			log.Errorf("Failed to setup vulnerability metrics: %v", err)
-
-			return
+			log.Fatalf("Failed to setup vulnerability metrics: %v", err) //nolint:gocritic
 		}
 	}
 
 	if config.EnableExposedSecretMetrics {
 		if err := reports.SetupExposedSecretMetrics(ctx, *config); err != nil {
-			log.Errorf("Failed to setup exposed secret metrics: %v", err)
-
-			return
+			log.Fatalf("Failed to setup exposed secret metrics: %v", err)
 		}
 	}
 
 	if config.EnableConfigAuditMetrics {
 		if err := reports.SetupConfigAuditMetrics(ctx, *config); err != nil {
-			log.Errorf("Failed to setup config audit metrics: %v", err)
-
-			return
+			log.Fatalf("Failed to setup config audit metrics: %v", err)
 		}
 	}
 
