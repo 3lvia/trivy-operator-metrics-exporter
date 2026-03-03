@@ -1,19 +1,15 @@
 apiVersion: v1
 kind: Service
 metadata:
+  name: {{ include "trivy-operator-metrics-exporter.name" . }}
+  namespace: {{ .Release.Namespace }}
   labels:
-    app.kubernetes.io/component: controller
-    app.kubernetes.io/name: trivy-operator-metrics-exporter
-    app.kubernetes.io/part-of: trivy-operator-metrics-exporter
-  name: trivy-operator-metrics-exporter
-  namespace: trivy-system
+    {{- include "trivy-operator-metrics-exporter.labels" . | nindent 4 }}
 spec:
   ports:
     - name: trivy-operator-metrics-exporter
       port: 80
       targetPort: 8080
   selector:
-    app.kubernetes.io/component: controller
-    app.kubernetes.io/name: trivy-operator-metrics-exporter
-    app.kubernetes.io/part-of: trivy-operator-metrics-exporter
+    {{- include "trivy-operator-metrics-exporter.labels" . | nindent 4 }}
   type: ClusterIP
