@@ -14,31 +14,23 @@ Supports these CRDs and exports them as Prometheus metrics (all gauges):
 - `ExposedSecretReports`
   - `trivy_exposed_secrets{}`
 
-## Installation with Helm
-
-Assuming [Trivy Operator](https://github.com/aquasecurity/trivy-operator) is already installed, run this command:
+## Installation
 
 ```bash
-helm install trivy-operator-metrics-exporter \
-  oci://ghcr.io/3lvia/charts/trivy-operator-metrics-exporter \
-  --namespace trivy-system
+kubectl apply -f https://raw.githubusercontent.com/3lvia/trivy-operator-metrics-exporter/refs/heads/trunk/manifests/install.yaml
 ```
-
-See [values.yaml](charts/trivy-operator-metrics-exporter/values.yaml) for available configuration options.
 
 ## Configuration
 
 The exporter can be configured via the following environment variables:
 
-| Environment Variable            | Description                                   | Default Value |
-| ------------------------------- | --------------------------------------------- | ------------- |
-| `ENABLE_VULNERABILITY_METRICS`  | Enable exporting VulnerabilityReports metrics | `true`        |
-| `ENABLE_CONFIG_AUDIT_METRICS`   | Enable exporting ConfigAuditReports metrics   | `true`        |
-| `ENABLE_EXPOSED_SECRET_METRICS` | Enable exporting ExposedSecretReports metrics | `true`        |
-
-Metrics are updated in real time using Kubernetes informers; there is no configurable polling or exporter restart interval.
-The previously documented `METRICS_UPDATE_INTERVAL` and `EXPORTER_RESTART_INTERVAL` settings have been removed and are no longer used by the exporter.
-The environment variables listed above can also be set via Helm values.
+| Environment Variable            | Description                                             | Default Value |
+| ------------------------------- | ------------------------------------------------------- | ------------- |
+| `ENABLE_VULNERABILITY_METRICS`  | Enable exporting VulnerabilityReports metrics           | `true`        |
+| `ENABLE_CONFIG_AUDIT_METRICS`   | Enable exporting ConfigAuditReports metrics             | `true`        |
+| `ENABLE_EXPOSED_SECRET_METRICS` | Enable exporting ExposedSecretReports metrics           | `true`        |
+| `METRICS_UPDATE_INTERVAL`       | How often CRDs are scanned to produce updated metrics   | `10m`         |
+| `EXPORTER_RESTART_INTERVAL`     | How often the container is restarted (to reset metrics) | `1h`          |
 
 ## Development
 
@@ -50,9 +42,16 @@ make run
 
 ### How to release new version
 
+**TODO**: Automate this process more.
+
 1. Increment the version in `VERSION` file.
 
-2. Update `version` and `appVersion` in `charts/trivy-operator-metrics-exporter/Chart.yaml` to match the new version.
-   **We always keep the image version and Helm chart version the same!**
+2. Update `images.newTag` in `manifests/base/kustomization.yaml` to the new version.
 
-3. Commit and push the changes.
+3. Run this command:
+
+```bash
+kustomize build manifests/base > manifests/install.yaml
+```
+
+4. Commit and push the changes.

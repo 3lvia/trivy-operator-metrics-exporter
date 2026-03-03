@@ -28,15 +28,6 @@ spec:
           env:
             - name: GIN_MODE
               value: release
-
-            - name: ENABLE_VULNERABILITY_METRICS
-              value: {{ .Values.metrics.vulnerabilities.enabled | quote }}
-
-            - name: ENABLE_CONFIG_AUDIT_METRICS
-              value: {{ .Values.metrics.configAudits.enabled | quote }}
-
-            - name: ENABLE_EXPOSED_SECRET_METRICS
-              value: {{ .Values.metrics.exposedSecrets.enabled | quote }}
           ports:
             - containerPort: 8080
           livenessProbe:

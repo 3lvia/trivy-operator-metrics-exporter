@@ -16,32 +16,31 @@ import (
 )
 
 type ApplicationMetrics struct {
-	httpRequestsReceivedTotal  meter.Int64Counter         // required
-	httpRequestDurationSeconds meter.Float64Histogram     // required
-	Vulnerabilities            meter.Int64ObservableGauge // required
-	ExposedSecrets             meter.Int64ObservableGauge // required
-	ConfigAudits               meter.Int64ObservableGauge // required
+	httpRequestsReceivedTotal  meter.Int64Counter     // required
+	httpRequestDurationSeconds meter.Float64Histogram // required
+	RuntimeErrorsTotal         meter.Int64Counter     // required
+	RuntimeWarningsTotal       meter.Int64Counter     // required
+	Vulnerabilities            meter.Int64Gauge       // required
+	ExposedSecrets             meter.Int64Gauge       // required
+	ConfigAudits               meter.Int64Gauge       // required
 }
 
-const (
-	SERVICE_NAME      = "trivy-operator-metrics-exporter"
-	SERVICE_NAMESPACE = "trivy-system"
-)
+const SERVICE_NAME = "trivy-operator-metrics-exporter"
 
-func configureMetrics(ctx context.Context) (*ApplicationMetrics, error) { //nolint:funlen
+func configureMetrics() (*ApplicationMetrics, error) {
 	metricExporter, err := prometheus.New()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create Prometheus exporter: %w", err)
+		return nil, fmt.Errorf("failed to create Prometheus exporter: %v", err)
 	}
 
 	resource, err := resource.New(
-		ctx,
+		context.Background(),
 		resource.WithAttributes(semconv.ServiceNameKey.String(SERVICE_NAME)),
-		resource.WithAttributes(semconv.ServiceNamespaceKey.String(SERVICE_NAMESPACE)),
+		resource.WithAttributes(semconv.ServiceNamespaceKey.String("core")),
 		resource.WithSchemaURL(semconv.SchemaURL),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create resource: %w", err)
+		return nil, fmt.Errorf("failed to create resource: %v", err)
 	}
 
 	meterProvider := metric.NewMeterProvider(
@@ -50,17 +49,17 @@ func configureMetrics(ctx context.Context) (*ApplicationMetrics, error) { //noli
 	)
 	otel.SetMeterProvider(meterProvider)
 
-	meter_ := meterProvider.Meter(SERVICE_NAME)
+	metrics := meterProvider.Meter(SERVICE_NAME)
 
-	httpRequestsReceivedTotal, err := meter_.Int64Counter(
+	httpRequestsReceivedTotal, err := metrics.Int64Counter(
 		"http_requests_received_total",
 		meter.WithDescription("Total number of HTTP requests received"),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not create counter: %w", err)
+		return nil, fmt.Errorf("could not create counter: %s", err)
 	}
 
-	httpRequestDurationSeconds, err := meter_.Float64Histogram(
+	httpRequestDurationSeconds, err := metrics.Float64Histogram(
 		"http_request_duration_seconds",
 		meter.WithDescription("The duration of HTTP requests processed by Gin, in seconds."),
 		meter.WithExplicitBucketBoundaries(
@@ -82,36 +81,54 @@ func configureMetrics(ctx context.Context) (*ApplicationMetrics, error) { //noli
 		),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not create histogram: %w", err)
+		return nil, fmt.Errorf("could not create histogram: %s", err)
 	}
 
-	vulnerabilities, err := meter_.Int64ObservableGauge(
+	runtimeErrorsTotal, err := metrics.Int64Counter(
+		"runtime_errors_total",
+		meter.WithDescription("Total number of runtime errors."),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not create counter: %s", err)
+	}
+
+	runtimeWarningsTotal, err := metrics.Int64Counter(
+		"runtime_warnings_total",
+		meter.WithDescription("Total number of runtime warnings."),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not create counter: %s", err)
+	}
+
+	vulnerabilities, err := metrics.Int64Gauge(
 		"trivy_image_vulnerabilities",
 		meter.WithDescription("Vulnerabilities found by Trivy Operator."),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not create vulnerabilities gauge: %w", err)
+		return nil, fmt.Errorf("could not create gauge: %s", err)
 	}
 
-	exposedSecrets, err := meter_.Int64ObservableGauge(
+	exposedSecrets, err := metrics.Int64Gauge(
 		"trivy_exposed_secrets",
 		meter.WithDescription("Exposed secrets found by Trivy Operator."),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not create exposed secrets gauge: %w", err)
+		return nil, fmt.Errorf("could not create gauge: %s", err)
 	}
 
-	configAudits, err := meter_.Int64ObservableGauge(
+	configAudits, err := metrics.Int64Gauge(
 		"trivy_config_audits",
 		meter.WithDescription("Config audits found by Trivy Operator."),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not create config audits gauge: %w", err)
+		return nil, fmt.Errorf("could not create gauge: %s", err)
 	}
 
 	return &ApplicationMetrics{
 		httpRequestsReceivedTotal:  httpRequestsReceivedTotal,
 		httpRequestDurationSeconds: httpRequestDurationSeconds,
+		RuntimeErrorsTotal:         runtimeErrorsTotal,
+		RuntimeWarningsTotal:       runtimeWarningsTotal,
 		Vulnerabilities:            vulnerabilities,
 		ExposedSecrets:             exposedSecrets,
 		ConfigAudits:               configAudits,
@@ -119,30 +136,31 @@ func configureMetrics(ctx context.Context) (*ApplicationMetrics, error) { //noli
 }
 
 func Metrics(config Config) gin.HandlerFunc {
-	return func(ctx *gin.Context) {
+	return func(c *gin.Context) {
 		t := time.Now()
-
-		ctx.Next()
+		c.Next()
 
 		latency := time.Since(t)
-		statusCode := ctx.Writer.Status()
-		method := ctx.Request.Method
-		endpoint := ctx.Request.URL.Path
+		statusCode := c.Writer.Status()
+		method := c.Request.Method
+		endpoint := c.Request.URL.Path
 
 		meterAttributes := []attribute.KeyValue{
 			attribute.Key("code").Int(statusCode),
 			attribute.Key("method").String(method),
 			attribute.Key("endpoint").String(endpoint),
+			// TODO: this shouldn't be needed, we don't have controllers
+			attribute.Key("controller").String("gin"),
 		}
 
 		config.ApplicationMetrics.httpRequestDurationSeconds.Record(
-			ctx.Request.Context(),
+			c.Request.Context(),
 			latency.Seconds(),
 			meter.WithAttributes(meterAttributes...),
 		)
 
 		config.ApplicationMetrics.httpRequestsReceivedTotal.Add(
-			ctx.Request.Context(),
+			c.Request.Context(),
 			1,
 			meter.WithAttributes(meterAttributes...),
 		)
