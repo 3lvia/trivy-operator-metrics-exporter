@@ -50,10 +50,10 @@ func CreateConfig(ctx context.Context) *Config {
 		logger.Fatalf("Could not setup Kubernetes client: %+v", err)
 	}
 
-	// Metrics
-	applicationMetrics, err := configureMetrics(ctx)
+	// OTEL
+	applicationMetrics, err := configureOpenTelemetry(ctx)
 	if err != nil {
-		logger.Fatalf("Could not configure metrics: %+v", err)
+		logger.Fatalf("Could not configure otel: %+v", err)
 	}
 
 	enableVulnerabilityMetrics := os.Getenv("ENABLE_VULNERABILITY_METRICS") != "false" //nolint:goconst

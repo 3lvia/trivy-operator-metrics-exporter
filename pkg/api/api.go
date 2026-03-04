@@ -52,7 +52,7 @@ func setupRouter(config appconfig.Config, options *SetupRouterOptions) *gin.Engi
 	router.Use(gin.Logger())
 
 	if options == nil || !options.Testing {
-		router.Use(appconfig.Metrics(config))
+		router.Use(appconfig.APIMetrics(config))
 	}
 
 	router.GET("/status", func(c *gin.Context) {
