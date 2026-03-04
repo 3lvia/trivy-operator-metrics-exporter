@@ -6,10 +6,15 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	log "github.com/sirupsen/logrus"
+	"go.opentelemetry.io/contrib/bridges/otellogrus"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc"
 	"go.opentelemetry.io/otel/exporters/prometheus"
+	"go.opentelemetry.io/otel/log/global"
 	meter "go.opentelemetry.io/otel/metric"
+	otelLog "go.opentelemetry.io/otel/sdk/log"
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
@@ -28,31 +33,78 @@ const (
 	SERVICE_NAMESPACE = "trivy-system"
 )
 
-func configureMetrics(ctx context.Context) (*ApplicationMetrics, error) { //nolint:funlen
-	metricExporter, err := prometheus.New()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create Prometheus exporter: %w", err)
-	}
-
-	resource, err := resource.New(
+func configureOpenTelemetry(ctx context.Context) (*ApplicationMetrics, error) {
+	otelResource, err := resource.New(
 		ctx,
 		resource.WithAttributes(semconv.ServiceNameKey.String(SERVICE_NAME)),
 		resource.WithAttributes(semconv.ServiceNamespaceKey.String(SERVICE_NAMESPACE)),
 		resource.WithSchemaURL(semconv.SchemaURL),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create resource: %w", err)
+		return nil, err
+	}
+
+	if err := configureLogs(ctx, otelResource); err != nil {
+		return nil, err
+	}
+
+	applicationMetrics, err := configureMetrics(otelResource)
+	if err != nil {
+		return nil, err
+	}
+
+	return applicationMetrics, nil
+}
+
+func configureLogs(ctx context.Context, otelResource *resource.Resource) error {
+	logExporter, err := otlploggrpc.New(ctx)
+	if err != nil {
+		return err
+	}
+
+	processor := otelLog.NewBatchProcessor(logExporter)
+	loggerProvider := otelLog.NewLoggerProvider(
+		otelLog.WithResource(otelResource),
+		otelLog.WithProcessor(processor),
+	)
+
+	global.SetLoggerProvider(loggerProvider)
+
+	hook := otellogrus.NewHook(
+		SERVICE_NAME,
+		otellogrus.WithLoggerProvider(loggerProvider),
+	)
+	log.AddHook(hook)
+
+	go func() {
+		<-ctx.Done()
+
+		shutdownCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+
+		if err := loggerProvider.Shutdown(shutdownCtx); err != nil {
+			log.Errorf("failed to shutdown OpenTelemetry logger provider: %v", err)
+		}
+	}()
+
+	return nil
+}
+
+func configureMetrics(otelResource *resource.Resource) (*ApplicationMetrics, error) { //nolint:funlen
+	metricExporter, err := prometheus.New()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Prometheus exporter: %w", err)
 	}
 
 	meterProvider := metric.NewMeterProvider(
 		metric.WithReader(metricExporter),
-		metric.WithResource(resource),
+		metric.WithResource(otelResource),
 	)
 	otel.SetMeterProvider(meterProvider)
 
-	meter_ := meterProvider.Meter(SERVICE_NAME)
+	metrics := meterProvider.Meter(SERVICE_NAME)
 
-	httpRequestsReceivedTotal, err := meter_.Int64Counter(
+	httpRequestsReceivedTotal, err := metrics.Int64Counter(
 		"http_requests_received_total",
 		meter.WithDescription("Total number of HTTP requests received"),
 	)
@@ -60,7 +112,7 @@ func configureMetrics(ctx context.Context) (*ApplicationMetrics, error) { //noli
 		return nil, fmt.Errorf("could not create counter: %w", err)
 	}
 
-	httpRequestDurationSeconds, err := meter_.Float64Histogram(
+	httpRequestDurationSeconds, err := metrics.Float64Histogram(
 		"http_request_duration_seconds",
 		meter.WithDescription("The duration of HTTP requests processed by Gin, in seconds."),
 		meter.WithExplicitBucketBoundaries(
@@ -85,7 +137,7 @@ func configureMetrics(ctx context.Context) (*ApplicationMetrics, error) { //noli
 		return nil, fmt.Errorf("could not create histogram: %w", err)
 	}
 
-	vulnerabilities, err := meter_.Int64ObservableGauge(
+	vulnerabilities, err := metrics.Int64ObservableGauge(
 		"trivy_image_vulnerabilities",
 		meter.WithDescription("Vulnerabilities found by Trivy Operator."),
 	)
@@ -93,7 +145,7 @@ func configureMetrics(ctx context.Context) (*ApplicationMetrics, error) { //noli
 		return nil, fmt.Errorf("could not create vulnerabilities gauge: %w", err)
 	}
 
-	exposedSecrets, err := meter_.Int64ObservableGauge(
+	exposedSecrets, err := metrics.Int64ObservableGauge(
 		"trivy_exposed_secrets",
 		meter.WithDescription("Exposed secrets found by Trivy Operator."),
 	)
@@ -101,7 +153,7 @@ func configureMetrics(ctx context.Context) (*ApplicationMetrics, error) { //noli
 		return nil, fmt.Errorf("could not create exposed secrets gauge: %w", err)
 	}
 
-	configAudits, err := meter_.Int64ObservableGauge(
+	configAudits, err := metrics.Int64ObservableGauge(
 		"trivy_config_audits",
 		meter.WithDescription("Config audits found by Trivy Operator."),
 	)
@@ -118,7 +170,7 @@ func configureMetrics(ctx context.Context) (*ApplicationMetrics, error) { //noli
 	}, nil
 }
 
-func Metrics(config Config) gin.HandlerFunc {
+func APIMetrics(config Config) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		t := time.Now()
 
