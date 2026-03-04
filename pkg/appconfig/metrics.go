@@ -83,6 +83,16 @@ func configureLogs(ctx context.Context, resource *resource.Resource) error {
 	)
 	log.AddHook(hook)
 
+	go func() {
+		<-ctx.Done()
+
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		if err := loggerProvider.Shutdown(shutdownCtx); err != nil {
+			log.Errorf("failed to shutdown OpenTelemetry logger provider: %v", err)
+		}
+	}()
 	return nil
 }
 
