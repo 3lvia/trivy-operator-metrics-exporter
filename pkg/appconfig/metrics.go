@@ -2,7 +2,6 @@ package appconfig
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -35,35 +34,29 @@ const (
 )
 
 func configureOpenTelemetry(ctx context.Context) (*ApplicationMetrics, error) {
-	resource, err := resource.New(
+	otelResource, err := resource.New(
 		ctx,
 		resource.WithAttributes(semconv.ServiceNameKey.String(SERVICE_NAME)),
 		resource.WithAttributes(semconv.ServiceNamespaceKey.String(SERVICE_NAMESPACE)),
 		resource.WithSchemaURL(semconv.SchemaURL),
 	)
 	if err != nil {
-		log.Errorf("Failed to create resource: %v", err)
-
-		return nil, errors.New("FailedToCreateResource")
+		return nil, err
 	}
 
-	if err := configureLogs(ctx, resource); err != nil {
-		log.Errorf("Failed to configure logs: %v", err)
-
-		return nil, errors.New("FailedToConfigureLogs")
+	if err := configureLogs(ctx, otelResource); err != nil {
+		return nil, err
 	}
 
-	applicationMetrics, err := configureMetrics(resource)
+	applicationMetrics, err := configureMetrics(otelResource)
 	if err != nil {
-		log.Errorf("Failed to configure metrics: %v", err)
-
-		return nil, errors.New("FailedToConfigureMetrics")
+		return nil, err
 	}
 
 	return applicationMetrics, nil
 }
 
-func configureLogs(ctx context.Context, resource *resource.Resource) error {
+func configureLogs(ctx context.Context, otelResource *resource.Resource) error {
 	logExporter, err := otlploggrpc.New(ctx)
 	if err != nil {
 		return err
@@ -71,7 +64,7 @@ func configureLogs(ctx context.Context, resource *resource.Resource) error {
 
 	processor := otelLog.NewBatchProcessor(logExporter)
 	loggerProvider := otelLog.NewLoggerProvider(
-		otelLog.WithResource(resource),
+		otelLog.WithResource(otelResource),
 		otelLog.WithProcessor(processor),
 	)
 
@@ -86,17 +79,18 @@ func configureLogs(ctx context.Context, resource *resource.Resource) error {
 	go func() {
 		<-ctx.Done()
 
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		shutdownCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
 
 		if err := loggerProvider.Shutdown(shutdownCtx); err != nil {
 			log.Errorf("failed to shutdown OpenTelemetry logger provider: %v", err)
 		}
 	}()
+
 	return nil
 }
 
-func configureMetrics(resource *resource.Resource) (*ApplicationMetrics, error) { //nolint:funlen
+func configureMetrics(otelResource *resource.Resource) (*ApplicationMetrics, error) { //nolint:funlen
 	metricExporter, err := prometheus.New()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Prometheus exporter: %w", err)
@@ -104,7 +98,7 @@ func configureMetrics(resource *resource.Resource) (*ApplicationMetrics, error) 
 
 	meterProvider := metric.NewMeterProvider(
 		metric.WithReader(metricExporter),
-		metric.WithResource(resource),
+		metric.WithResource(otelResource),
 	)
 	otel.SetMeterProvider(meterProvider)
 
