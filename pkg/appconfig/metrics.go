@@ -5,11 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 	"go.opentelemetry.io/contrib/bridges/otellogrus"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc"
 	"go.opentelemetry.io/otel/exporters/prometheus"
 	"go.opentelemetry.io/otel/log/global"
@@ -21,11 +19,9 @@ import (
 )
 
 type ApplicationMetrics struct {
-	httpRequestsReceivedTotal  meter.Int64Counter         // required
-	httpRequestDurationSeconds meter.Float64Histogram     // required
-	Vulnerabilities            meter.Int64ObservableGauge // required
-	ExposedSecrets             meter.Int64ObservableGauge // required
-	ConfigAudits               meter.Int64ObservableGauge // required
+	Vulnerabilities meter.Int64ObservableGauge // required
+	ExposedSecrets  meter.Int64ObservableGauge // required
+	ConfigAudits    meter.Int64ObservableGauge // required
 }
 
 const (
@@ -90,7 +86,7 @@ func configureLogs(ctx context.Context, otelResource *resource.Resource) error {
 	return nil
 }
 
-func configureMetrics(otelResource *resource.Resource) (*ApplicationMetrics, error) { //nolint:funlen
+func configureMetrics(otelResource *resource.Resource) (*ApplicationMetrics, error) {
 	metricExporter, err := prometheus.New()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Prometheus exporter: %w", err)
@@ -103,39 +99,6 @@ func configureMetrics(otelResource *resource.Resource) (*ApplicationMetrics, err
 	otel.SetMeterProvider(meterProvider)
 
 	metrics := meterProvider.Meter(SERVICE_NAME)
-
-	httpRequestsReceivedTotal, err := metrics.Int64Counter(
-		"http_requests_received_total",
-		meter.WithDescription("Total number of HTTP requests received"),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("could not create counter: %w", err)
-	}
-
-	httpRequestDurationSeconds, err := metrics.Float64Histogram(
-		"http_request_duration_seconds",
-		meter.WithDescription("The duration of HTTP requests processed by Gin, in seconds."),
-		meter.WithExplicitBucketBoundaries(
-			0.001,
-			0.002,
-			0.005,
-			0.01,
-			0.02,
-			0.05,
-			0.1,
-			0.2,
-			0.5,
-			1,
-			2,
-			5,
-			10,
-			20,
-			60,
-		),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("could not create histogram: %w", err)
-	}
 
 	vulnerabilities, err := metrics.Int64ObservableGauge(
 		"trivy_image_vulnerabilities",
@@ -162,41 +125,8 @@ func configureMetrics(otelResource *resource.Resource) (*ApplicationMetrics, err
 	}
 
 	return &ApplicationMetrics{
-		httpRequestsReceivedTotal:  httpRequestsReceivedTotal,
-		httpRequestDurationSeconds: httpRequestDurationSeconds,
-		Vulnerabilities:            vulnerabilities,
-		ExposedSecrets:             exposedSecrets,
-		ConfigAudits:               configAudits,
+		Vulnerabilities: vulnerabilities,
+		ExposedSecrets:  exposedSecrets,
+		ConfigAudits:    configAudits,
 	}, nil
-}
-
-func APIMetrics(config Config) gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		t := time.Now()
-
-		ctx.Next()
-
-		latency := time.Since(t)
-		statusCode := ctx.Writer.Status()
-		method := ctx.Request.Method
-		endpoint := ctx.Request.URL.Path
-
-		meterAttributes := []attribute.KeyValue{
-			attribute.Key("code").Int(statusCode),
-			attribute.Key("method").String(method),
-			attribute.Key("endpoint").String(endpoint),
-		}
-
-		config.ApplicationMetrics.httpRequestDurationSeconds.Record(
-			ctx.Request.Context(),
-			latency.Seconds(),
-			meter.WithAttributes(meterAttributes...),
-		)
-
-		config.ApplicationMetrics.httpRequestsReceivedTotal.Add(
-			ctx.Request.Context(),
-			1,
-			meter.WithAttributes(meterAttributes...),
-		)
-	}
 }
