@@ -34,15 +34,15 @@ spec:
           env:
             - name: GIN_MODE
               value: "release"
-
             - name: ENABLE_VULNERABILITY_METRICS
               value: {{ if (eq (.Values.metrics.vulnerabilities.enabled | toString) "true") }}"true"{{ else }}"false"{{ end }}
-
             - name: ENABLE_CONFIG_AUDIT_METRICS
               value: {{ if (eq (.Values.metrics.configAudits.enabled | toString) "true") }}"true"{{ else }}"false"{{ end }}
-
             - name: ENABLE_EXPOSED_SECRET_METRICS
               value: {{ if (eq (.Values.metrics.exposedSecrets.enabled | toString) "true") }}"true"{{ else }}"false"{{ end }}
+          {{- with .Values.extraEnv }}
+          {{- toYaml . | nindent 12 }}
+          {{- end }}
           ports:
             - containerPort: 8080
           livenessProbe:
