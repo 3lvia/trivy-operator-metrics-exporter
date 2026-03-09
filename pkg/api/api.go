@@ -13,7 +13,7 @@ import (
 )
 
 func Start(ctx context.Context, config appconfig.Config) {
-	router := setupRouter(config, nil) //nolint:contextcheck
+	router := setupRouter()
 
 	srv := &http.Server{ //nolint:exhaustruct
 		Addr:              ":8080",
@@ -43,17 +43,9 @@ func Start(ctx context.Context, config appconfig.Config) {
 	}
 }
 
-type SetupRouterOptions struct {
-	Testing bool
-}
-
-func setupRouter(config appconfig.Config, options *SetupRouterOptions) *gin.Engine {
+func setupRouter() *gin.Engine {
 	router := gin.New()
 	router.Use(gin.Logger())
-
-	if options == nil || !options.Testing {
-		router.Use(appconfig.APIMetrics(config))
-	}
 
 	router.GET("/status", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
