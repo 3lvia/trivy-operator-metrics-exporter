@@ -1,6 +1,6 @@
 image:
   repository: ghcr.io/3lvia/trivy-operator-metrics-exporter
-  tag: v0.5.0
+  tag: v0.5.1
   pullPolicy: Always
 
 serviceMonitor:
@@ -15,6 +15,14 @@ metrics:
 
   exposedSecrets:
     enabled: true
+#
+# resources:
+#   limits:
+#     cpu: 100m
+#     memory: 128Mi
+#   requests:
+#     cpu: 50m
+#     memory: 64Mi
 #
 # extraEnv:
 #   - name: OTEL_EXPORTER_OTLP_PROTOCOL
