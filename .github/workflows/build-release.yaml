@@ -55,6 +55,24 @@ jobs:
           cache-from: 'type=registry,ref=${{ env.IMAGE_NAME }}:latest'
           cache-to: 'type=inline'
 
+      #     - name: Scan image with Trivy
+      #       uses: aquasecurity/trivy-action@0.35.0
+      #       with:
+      #         image-ref: '${{ env.IMAGE_NAME }}:${{ github.sha }}'
+      #         format: 'sarif'
+      #         exit-code: '0'
+      #         output: ${{ env.TRIVY_SARIF }}
+      #         version: 'latest'
+      #       env:
+      #         TRIVY_DB_REPOSITORY: 'public.ecr.aws/aquasecurity/trivy-db:2'
+      #         TRIVY_JAVA_DB_REPOSITORY: 'public.ecr.aws/aquasecurity/trivy-java-db:1'
+
+  #     - name: Upload Trivy scan results
+  #       uses: github/codeql-action/upload-sarif@v4
+  #       with:
+  #         sarif_file: ${{ env.TRIVY_SARIF }}
+  #         category: 'Trivy'
+
   pre-release:
     name: Pre-release
     needs: [build]

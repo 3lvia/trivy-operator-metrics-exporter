@@ -145,13 +145,6 @@ make test
 
 ### How to release a new version
 
-#### With GitHub Actions
-
-Run the `Release` workflow in this repository, and input the new version when prompted.
-This will automatically update the version in `VERSION` file, `Chart.yaml`, and `values.yaml`, create a new git tag, and publish the new Helm chart to GitHub Container Registry.
-
-#### Manually
-
 1. Increment the version in `VERSION` file.
 
 2. Update `version` and `appVersion` in `charts/trivy-operator-metrics-exporter/Chart.yaml` to match the new version.
