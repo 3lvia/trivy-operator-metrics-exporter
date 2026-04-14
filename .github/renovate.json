@@ -11,6 +11,11 @@
     {
       "matchPackageNames": ["^k8s.io/", "^kubernetes-go$"],
       "groupName": "Kubernetes packages"
+    },
+    {
+      "matchDepTypes": ["action"],
+      "matchPackageNames": ["3lvia/core-github-actions-templates"],
+      "pinDigests": false
     }
   ]
 }
