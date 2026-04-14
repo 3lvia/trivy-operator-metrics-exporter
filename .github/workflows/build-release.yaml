@@ -30,7 +30,7 @@ jobs:
       TRIVY_SARIF: 'trivy-results.sarif'
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Get version
         run: echo "VERSION=v$(cat VERSION)" >> "$GITHUB_ENV"
@@ -84,7 +84,7 @@ jobs:
       contents: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Resolve version
         id: get-version
@@ -133,7 +133,7 @@ jobs:
     if: ${{ github.event_name == 'push' }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Check if chart already exists
         id: check-chart
@@ -177,7 +177,7 @@ jobs:
       packages: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v4
@@ -201,7 +201,7 @@ jobs:
       contents: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Release if new version and not alpha or beta
         if: ${{ !contains(needs.build.outputs.version-tag, '-alpha') && !contains(needs.build.outputs.version-tag, '-beta') }}
