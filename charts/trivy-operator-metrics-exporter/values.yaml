@@ -23,7 +23,8 @@ metrics:
 networkPolicy:
   # Enable only after confirming required ingress/egress is allowed for your environment.
   enabled: false
-# type: k8s,cilium
+  # Valid values: k8s or cilium
+  # type: k8s
 
 # resources:
 #   limits:
