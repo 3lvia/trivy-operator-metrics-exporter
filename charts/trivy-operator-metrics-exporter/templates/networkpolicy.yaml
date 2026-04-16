@@ -44,6 +44,8 @@ spec:
             http:
               - method: GET
                 path: /metrics
+              - method: GET
+                path: /status
 
   egress:
     - toEntities:
