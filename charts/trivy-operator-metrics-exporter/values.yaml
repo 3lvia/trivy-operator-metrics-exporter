@@ -1,6 +1,6 @@
 image:
   repository: ghcr.io/3lvia/trivy-operator-metrics-exporter
-  tag: v0.6.0
+  tag: v0.7.0
   pullPolicy: Always
 
 serviceMonitor:
@@ -20,12 +20,19 @@ metrics:
   exposedSecrets:
     enabled: true
 
-networkPolicy:
-  # Enable only after confirming required ingress/egress is allowed for your environment.
-  enabled: false
-  # Valid values: k8s or cilium
-  # type: k8s
+logs:
+  otel:
+    enabled: false
 
+    endpoint: http://opentelemetry-collector.monitoring.svc.cluster.local:4317
+    protocol: grpc
+
+networkPolicy:
+  enabled: false
+
+  # k8s or cilium
+  type: k8s
+#
 # resources:
 #   limits:
 #     cpu: 100m
@@ -34,11 +41,7 @@ networkPolicy:
 #     cpu: 50m
 #     memory: 64Mi
 #
-# extraEnv:
-#   - name: OTEL_EXPORTER_OTLP_PROTOCOL
-#     value: grpc
-#   - name: OTEL_EXPORTER_OTLP_ENDPOINT
-#     value: http://otel-collector.monitoring.svc.cluster.local:4317
+# extraEnv: []
 #
 # muteConfig: |
 #   vulnerabilities:

@@ -40,6 +40,14 @@ spec:
               value: {{ if (eq (.Values.metrics.configAudits.enabled | toString) "true") }}"true"{{ else }}"false"{{ end }}
             - name: ENABLE_EXPOSED_SECRET_METRICS
               value: {{ if (eq (.Values.metrics.exposedSecrets.enabled | toString) "true") }}"true"{{ else }}"false"{{ end }}
+          {{- if .Values.logs.otel.enabled }}
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: {{ .Values.logs.otel.endpoint | quote }}
+            - name: OTEL_EXPORTER_OTLP_PROTOCOL
+              value: {{ .Values.logs.otel.protocol | quote }}
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: {{ printf "service.name=%s" (include "trivy-operator-metrics-exporter.name" .) | quote }}
+          {{- end }}
           {{- with .Values.extraEnv }}
           {{- toYaml . | nindent 12 }}
           {{- end }}
