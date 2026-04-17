@@ -13,14 +13,23 @@ spec:
       app.kubernetes.io/name: {{ include "trivy-operator-metrics-exporter.name" . }}
 
   ingress:
+    # Allow traffic to /metrics and /status endpoints
     - ports:
-        - protocol: TCP
-          port: 8080
+        - port: 8080
+          protocol: TCP
 
   egress:
+    # Kubernetes API server
     - ports:
-        - protocol: TCP
-          port: 443
+        - port: 443
+          protocol: TCP
+{{- if .Values.logs.otel.enabled }}
+
+    # OpenTelemetry logs
+    - ports:
+        - port: {{ with .Values.logs.otel.endpoint | urlParse }}{{ splitList ":" .host | last }}{{ end }}
+          protocol: TCP
+{{- end }}
 {{- end }}
 {{- if eq (.Values.networkPolicy.type | default "k8s") "cilium" }}
 apiVersion: cilium.io/v2
@@ -36,6 +45,7 @@ spec:
       app.kubernetes.io/name: {{ include "trivy-operator-metrics-exporter.name" . }}
 
   ingress:
+    # Allow traffic to /metrics and /status endpoints
     - toPorts:
         - ports:
             - port: '8080'
@@ -48,6 +58,7 @@ spec:
                 path: /status
 
   egress:
+    # Kubernetes API server
     - toEntities:
         - kube-apiserver
       toPorts:
@@ -55,5 +66,12 @@ spec:
             - port: '443'
               protocol: TCP
 
+{{- if .Values.logs.otel.enabled }}
+    # OpenTelemetry logs
+    - toPorts:
+        - ports:
+            - port: '{{ with .Values.logs.otel.endpoint | urlParse }}{{ splitList ":" .host | last }}{{ end }}'
+              protocol: TCP
+{{- end }}
 {{- end }}
 {{- end }}

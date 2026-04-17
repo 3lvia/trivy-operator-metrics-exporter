@@ -3,6 +3,7 @@ package appconfig
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -53,6 +54,15 @@ func configureOpenTelemetry(ctx context.Context) (*ApplicationMetrics, error) {
 }
 
 func configureLogs(ctx context.Context, otelResource *resource.Resource) error {
+	if os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT") == "" || os.Getenv("OTEL_EXPORTER_OTLP_PROTOCOL") == "" {
+		log.Warn(
+			"OTEL_EXPORTER_OTLP_ENDPOINT or OTEL_EXPORTER_OTLP_PROTOCOL environment variable is not set. " +
+				"Logs will not be exported to OTLP collector.",
+		)
+
+		return nil
+	}
+
 	logExporter, err := otlploggrpc.New(ctx)
 	if err != nil {
 		return err
