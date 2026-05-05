@@ -4,9 +4,10 @@ linters:
   disable:
     - depguard
     - err113
-    - prealloc
+    - goconst
     - mnd
     - noinlineerr
+    - prealloc
     - revive
     - tagliatelle
     - testpackage
