@@ -15,7 +15,7 @@ import (
 func Start(ctx context.Context, config appconfig.Config) {
 	router := setupRouter()
 
-	srv := &http.Server{ //nolint:exhaustruct,exhaustruct_v5
+	srv := &http.Server{ //nolint:exhaustruct_v5
 		Addr:              ":8080",
 		Handler:           router,
 		ReadHeaderTimeout: 5 * time.Second, // gosec G112
