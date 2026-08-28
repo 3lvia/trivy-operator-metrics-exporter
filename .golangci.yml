@@ -4,7 +4,9 @@ linters:
   disable:
     - depguard
     - err113
+    - exhaustruct
     - goconst
+    - gomodguard
     - mnd
     - noinlineerr
     - prealloc
@@ -13,6 +15,9 @@ linters:
     - testpackage
     - wrapcheck
     - wsl
+  enable:
+    - exhaustruct_v5
+    - gomodguard_v2
 formatters:
   enable:
     - gci

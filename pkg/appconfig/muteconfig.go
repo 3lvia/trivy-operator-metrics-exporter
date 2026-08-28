@@ -19,7 +19,7 @@ type VulnerabilityMute struct {
 
 func loadMuteConfig() (*MuteConfig, error) {
 	if _, err := os.Stat("mute.yaml"); os.IsNotExist(err) {
-		return &MuteConfig{}, nil //nolint:exhaustruct
+		return &MuteConfig{}, nil //nolint:exhaustruct_v5
 	}
 
 	contents, err := os.ReadFile("mute.yaml")

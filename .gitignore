@@ -1,1 +1,2 @@
 .bin/
+trivy-operator-metrics-exporter.exe
